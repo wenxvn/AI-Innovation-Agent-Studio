@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-zinc-800;
+  }
+  body {
+    @apply bg-zinc-950 text-zinc-100;
+  }
+}
+
+@layer components {
+  .card-glass {
+    @apply rounded-2xl border border-white/10 bg-zinc-950/70 shadow-xl backdrop-blur;
+  }
+
+  .gradient-primary {
+    @apply bg-gradient-to-r from-violet-500 to-indigo-500;
+  }
+
+  .gradient-accent {
+    @apply bg-gradient-to-r from-cyan-500 to-blue-500;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent;
+  }
+}
+
+@layer utilities {
+  .animate-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
