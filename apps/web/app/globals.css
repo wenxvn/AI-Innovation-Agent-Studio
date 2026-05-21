@@ -26,6 +26,10 @@
     --error-foreground: 0 0% 100%;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   .dark {
     --background: 240 10% 4%;
     --foreground: 0 0% 98%;

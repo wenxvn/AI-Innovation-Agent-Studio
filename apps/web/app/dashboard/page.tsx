@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { toast } from '@/components/ui/use-toast'
-import { api, type Project, type ProjectCreate } from '@/lib/api-client'
+import { api, type Project, type ProjectCreate, type DashboardStats } from '@/lib/api-client'
 import {
   Plus,
   FolderOpen,
@@ -53,6 +53,11 @@ export default function DashboardPage() {
     queryFn: () => api.projects.list(),
   })
 
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: () => api.dashboard.stats(),
+  })
+
   const createMutation = useMutation({
     mutationFn: (data: ProjectCreate) => api.projects.create(data),
     onSuccess: () => {
@@ -79,6 +84,7 @@ export default function DashboardPage() {
 
   const projects = data?.data || []
   const total = data?.total || 0
+  const stats = statsData?.data
 
   const handleSubmit = () => {
     if (!form.name.trim()) {
@@ -169,7 +175,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">项目总数</p>
-                  <p className="text-3xl font-bold">{total}</p>
+                  <p className="text-3xl font-bold">{stats ? stats.project_count : total}</p>
                 </div>
                 <FolderOpen className="h-8 w-8 text-violet-500" />
               </div>
@@ -180,7 +186,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Agent 运行</p>
-                  <p className="text-3xl font-bold">-</p>
+                  <p className="text-3xl font-bold">{stats ? stats.agent_run_count : (statsLoading ? '...' : 0)}</p>
                 </div>
                 <Activity className="h-8 w-8 text-blue-500" />
               </div>
@@ -191,7 +197,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">生成产物</p>
-                  <p className="text-3xl font-bold">-</p>
+                  <p className="text-3xl font-bold">{stats ? stats.output_count : (statsLoading ? '...' : 0)}</p>
                 </div>
                 <FileText className="h-8 w-8 text-cyan-500" />
               </div>
@@ -202,7 +208,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">平均评分</p>
-                  <p className="text-3xl font-bold">-</p>
+                  <p className="text-3xl font-bold">{stats && stats.avg_score > 0 ? stats.avg_score : (statsLoading ? '...' : '-')}</p>
                 </div>
                 <BarChart3 className="h-8 w-8 text-emerald-500" />
               </div>

@@ -23,9 +23,16 @@ if %errorlevel% neq 0 (
 
 where python >nul 2>nul
 if %errorlevel% neq 0 (
-  echo [WARNING] Python is not installed. Backend will not start.
-  echo Please install Python 3.11+ from https://python.org/
-  set SKIP_BACKEND=1
+  where py >nul 2>nul
+  if %errorlevel% neq 0 (
+    echo [WARNING] Python is not installed. Backend will not start.
+    echo Please install Python 3.11+ from https://python.org/
+    set SKIP_BACKEND=1
+  ) else (
+    set PYTHON_CMD=py
+  )
+) else (
+  set PYTHON_CMD=python
 )
 
 where docker >nul 2>nul
@@ -70,7 +77,7 @@ if not defined SKIP_BACKEND (
   echo [4/5] Installing backend dependencies...
   cd /d "%~dp0apps\api"
   if not exist .venv (
-    python -m venv .venv
+    %PYTHON_CMD% -m venv .venv
   )
   call .venv\Scripts\activate
   pip install -r requirements.txt -q

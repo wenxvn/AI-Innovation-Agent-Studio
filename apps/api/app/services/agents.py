@@ -1,6 +1,7 @@
 import time
 import json
 import asyncio
+import logging
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from app.models.agent_run import AgentRun
@@ -17,21 +18,37 @@ from app.prompts.agent_run import SYSTEM_PROMPT, AGENT_RUN_PROMPT, EVAL_JUDGE_PR
 from app.core.config import get_settings
 from typing import Optional
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 SKILL_TO_TYPE = {
     "competition-analyzer": "analysis",
-    "idea-generator": "ideation",
+    "idea-generator": "idea_report",
     "prd-writer": "prd",
     "architecture-designer": "architecture",
-    "research-synthesizer": "research",
+    "research-synthesizer": "research_report",
     "pitch-writer": "pitch",
-    "fastapi-generator": "code",
-    "nextjs-generator": "code",
-    "qa-debugger": "analysis",
+    "fastapi-generator": "backend_code",
+    "nextjs-generator": "frontend_code",
+    "qa-debugger": "test_report",
     "api-designer": "architecture",
     "rag-builder": "architecture",
     "context-pack-builder": "analysis",
+}
+
+SKILL_TO_TITLE_PREFIX = {
+    "competition-analyzer": "竞赛分析",
+    "idea-generator": "项目方向报告",
+    "prd-writer": "PRD",
+    "architecture-designer": "系统架构设计",
+    "research-synthesizer": "调研分析报告",
+    "pitch-writer": "答辩稿",
+    "fastapi-generator": "FastAPI 代码骨架",
+    "nextjs-generator": "Next.js 代码骨架",
+    "qa-debugger": "测试与修复建议",
+    "api-designer": "API 设计文档",
+    "rag-builder": "RAG 构建方案",
+    "context-pack-builder": "上下文包分析",
 }
 
 AGENT_NAME_MAP = {
@@ -73,9 +90,14 @@ def select_skill(user_input: str) -> str:
     return "prd-writer"
 
 
-def build_context_pack(db: Session, project_id: str, user_input: str, skill_name: str) -> dict:
+def build_context_pack(db: Session, project_id: str, agent_run_id: str, user_input: str, skill_name: str) -> dict:
+    memory_start = time.time()
     memories = get_relevant_memories(db, project_id, user_input, top_k=3)
+    memory_latency = int((time.time() - memory_start) * 1000)
+
+    rag_start = time.time()
     chunks = search_chunks_for_agent(db, project_id, user_input, top_k=5)
+    rag_latency = int((time.time() - rag_start) * 1000)
 
     context_pack = {
         "task": user_input,
@@ -103,6 +125,43 @@ def build_context_pack(db: Session, project_id: str, user_input: str, skill_name
         "constraints": [],
         "risks": [],
     }
+
+    try:
+        tc_memory = ToolCall(
+            project_id=project_id,
+            agent_run_id=agent_run_id,
+            tool_name="memory_search",
+            input_params={"query": user_input, "top_k": 3, "skill": skill_name},
+            output_result={"hit_count": len(memories), "memories": [m.id for m in memories]},
+            status="completed",
+            permission_level="low",
+            requires_approval=False,
+            latency_ms=memory_latency,
+        )
+        db.add(tc_memory)
+        db.commit()
+        logger.info("Tool call recorded: memory_search, hits=%d, latency=%dms", len(memories), memory_latency)
+    except Exception as e:
+        logger.error("Failed to record memory_search tool call: %s", e)
+
+    try:
+        tc_rag = ToolCall(
+            project_id=project_id,
+            agent_run_id=agent_run_id,
+            tool_name="rag_search",
+            input_params={"query": user_input, "top_k": 5, "skill": skill_name},
+            output_result={"hit_count": len(chunks), "chunks": [c.id for c in chunks]},
+            status="completed",
+            permission_level="low",
+            requires_approval=False,
+            latency_ms=rag_latency,
+        )
+        db.add(tc_rag)
+        db.commit()
+        logger.info("Tool call recorded: rag_search, hits=%d, latency=%dms", len(chunks), rag_latency)
+    except Exception as e:
+        logger.error("Failed to record rag_search tool call: %s", e)
+
     return context_pack
 
 
@@ -209,6 +268,8 @@ async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -
     skill_name = data.selected_skill or select_skill(data.user_input)
     agent_name = data.agent_name or AGENT_NAME_MAP.get(skill_name, "Orchestrator Agent")
 
+    logger.info("Agent run started: project=%s, skill=%s, agent=%s", project_id, skill_name, agent_name)
+
     provider_status = get_provider_status()
     llm_provider = get_llm_provider()
     is_mock = isinstance(llm_provider, MockLLMProvider)
@@ -258,7 +319,7 @@ async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -
             status="info",
         )
 
-        context_pack = build_context_pack(db, project_id, data.user_input, skill_name)
+        context_pack = build_context_pack(db, project_id, run.id, data.user_input, skill_name)
 
         create_trace_event(
             db, project_id, run.id,
@@ -388,11 +449,17 @@ async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -
         run.status = "completed"
         db.commit()
 
+        output_title = output.get("title", "")
+        if not output_title or output_title == "Untitled":
+            prefix = SKILL_TO_TITLE_PREFIX.get(skill_name, "Agent 输出")
+            summary = data.user_input[:50].strip()
+            output_title = f"{prefix} - {summary}"
+
         new_output = Output(
             project_id=project_id,
             agent_run_id=run.id,
             output_type=output.get("type", expected_type),
-            title=output.get("title", "Untitled"),
+            title=output_title,
             content=output.get("content", ""),
             version=1,
             created_by_agent=agent_name,
@@ -404,6 +471,12 @@ async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -
             },
         )
         db.add(new_output)
+        db.flush()
+
+        logger.info(
+            "Output created: id=%s, type=%s, title=%s, project=%s",
+            new_output.id, new_output.output_type, new_output.title, project_id,
+        )
 
         new_eval = Evaluation(
             project_id=project_id,
@@ -426,15 +499,20 @@ async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -
         tool_call = ToolCall(
             project_id=project_id,
             agent_run_id=run.id,
-            tool_name="generate_output",
-            input_params={"skill": skill_name, "user_input": data.user_input},
-            output_result={"output_id": new_output.id},
+            tool_name="output_writer",
+            input_params={"skill": skill_name, "user_input": data.user_input, "output_type": output.get("type", expected_type)},
+            output_result={"output_id": new_output.id, "title": new_output.title, "type": new_output.output_type},
             status="completed",
             permission_level="low",
             requires_approval=False,
             latency_ms=latency_ms,
         )
         db.add(tool_call)
+
+        logger.info(
+            "Tool call recorded: output_writer, output_id=%s, type=%s",
+            new_output.id, new_output.output_type,
+        )
 
         create_trace_event(
             db, project_id, run.id,
@@ -458,10 +536,17 @@ async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -
             output_data={"latency_ms": latency_ms, "tokens": token_usage_dict["total_tokens"]},
         )
 
+        logger.info(
+            "Agent run completed: project=%s, run=%s, skill=%s, latency=%dms, tokens=%d, output=%s",
+            project_id, run.id, skill_name, latency_ms, token_usage_dict["total_tokens"], new_output.id,
+        )
+
     except Exception as e:
         run.status = "failed"
         run.error_message = str(e)
         db.commit()
+
+        logger.error("Agent run failed: project=%s, run=%s, error=%s", project_id, run.id, str(e))
 
         create_trace_event(
             db, project_id, run.id,

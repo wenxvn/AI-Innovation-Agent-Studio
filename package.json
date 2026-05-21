@@ -8,6 +8,11 @@
     "start": "pnpm --filter web start",
     "lint": "pnpm --filter web lint"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"

@@ -190,6 +190,10 @@ export const api = {
     listProjectTrace: (projectId: string, limit = 100) =>
       request<{ data: TraceEvent[]; total: number }>(`/api/v1/projects/${projectId}/trace/events?limit=${limit}`),
   },
+  dashboard: {
+    stats: () =>
+      request<{ data: DashboardStats }>("/api/v1/dashboard/stats"),
+  },
   health: () =>
     request<{ status: string; database: string; version: string }>("/health"),
 };
@@ -440,4 +444,28 @@ export interface TraceEvent {
   metadata_: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+}
+
+export interface DashboardStats {
+  project_count: number;
+  active_project_count: number;
+  agent_run_count: number;
+  output_count: number;
+  document_count: number;
+  memory_count: number;
+  eval_count: number;
+  avg_score: number;
+  recent_agent_runs: Array<{
+    id: string;
+    agent_name: string;
+    selected_skill: string;
+    status: string;
+    created_at: string | null;
+  }>;
+  recent_outputs: Array<{
+    id: string;
+    title: string;
+    output_type: string;
+    created_at: string | null;
+  }>;
 }

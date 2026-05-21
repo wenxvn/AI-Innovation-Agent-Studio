@@ -115,8 +115,8 @@ export default function HomePage() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline">
-              查看系统架构
+            <Button size="lg" variant="outline" asChild>
+              <a href="#architecture">查看系统架构</a>
             </Button>
           </div>
           
