@@ -1,203 +1,147 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
-import { 
-  Zap, 
-  Search, 
-  Plus, 
-  Settings, 
-  Shield, 
-  Lock, 
-  Unlock,
-  CheckCircle2,
-  AlertCircle
-} from 'lucide-react'
-import { skills } from '@/lib/mock-data'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { toast } from '@/components/ui/use-toast'
+import { api, type Skill } from '@/lib/api-client'
+import { Loader2, RefreshCw, Wrench, Shield, FileInput, FileOutput } from 'lucide-react'
 
 export default function SkillsPage() {
+  const queryClient = useQueryClient()
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['skills'],
+    queryFn: () => api.skills.list(),
+  })
+
+  const reloadMutation = useMutation({
+    mutationFn: () => api.skills.reload(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['skills'] })
+      toast({ title: 'Skills 已重新加载', variant: 'success' })
+    },
+    onError: (err: Error) => toast({ title: '加载失败', description: err.message, variant: 'destructive' }),
+  })
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ name, is_enabled }: { name: string; is_enabled: boolean }) =>
+      api.skills.update(name, { is_enabled }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['skills'] })
+      toast({ title: 'Skill 状态已更新', variant: 'success' })
+    },
+  })
+
+  const skills = data?.data || []
+
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-5xl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold mb-2">Skill Registry</h1>
-          <p className="text-zinc-400">管理和使用 12 个内置技能</p>
+          <h1 className="text-2xl font-bold">Skills</h1>
+          <p className="text-sm text-muted-foreground mt-1">管理和查看 Agent 可用技能</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Search className="h-4 w-4 mr-2" />
-            搜索技能
-          </Button>
-          <Button variant="primary" size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            添加技能
-          </Button>
-        </div>
+        <Button variant="outline" onClick={() => reloadMutation.mutate()} disabled={reloadMutation.isPending}>
+          {reloadMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          重新加载
+        </Button>
       </div>
 
-      {/* Skills Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {skills.map((skill) => (
-          <Card key={skill.id} className="hover:border-violet-500/30 transition-colors">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-violet-500/10">
-                    <Zap className="h-5 w-5 text-violet-400" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-base">{skill.name}</CardTitle>
-                    <p className="text-xs text-zinc-500">v{skill.version}</p>
-                  </div>
+      {isLoading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+        </div>
+      )}
+
+      {!isLoading && skills.length === 0 && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Wrench className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">暂无 Skills</h3>
+            <p className="text-muted-foreground mb-4">点击"重新加载"从磁盘读取 Skill 定义</p>
+            <Button variant="primary" onClick={() => reloadMutation.mutate()}>重新加载</Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && skills.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {skills.map((skill) => (
+            <Card key={skill.id} className={!skill.is_enabled ? 'opacity-60' : ''}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">{skill.name}</CardTitle>
+                  <Badge variant={skill.is_enabled ? 'success' : 'secondary'} className="text-xs">
+                    {skill.is_enabled ? '启用' : '禁用'}
+                  </Badge>
                 </div>
-                <Badge variant="accent" className="text-xs">
-                  {skill.requiresApproval ? '需审批' : '自动'}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-zinc-400 mb-4">{skill.description}</p>
-              
-              {/* Triggers */}
-              <div className="mb-4">
-                <p className="text-xs text-zinc-500 mb-2">触发条件</p>
-                <div className="flex flex-wrap gap-1">
-                  {skill.trigger.slice(0, 2).map((t, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs">
-                      {t}
-                    </Badge>
-                  ))}
-                  {skill.trigger.length > 2 && (
-                    <Badge variant="secondary" className="text-xs">
-                      +{skill.trigger.length - 2}
-                    </Badge>
+                <CardDescription>{skill.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>版本: {skill.version}</span>
+                  <span>•</span>
+                  <span>作者: {skill.author}</span>
+                  {skill.requires_approval && (
+                    <>
+                      <span>•</span>
+                      <span className="flex items-center gap-1 text-warning">
+                        <Shield className="h-3 w-3" />
+                        需审批
+                      </span>
+                    </>
                   )}
                 </div>
-              </div>
-              
-              {/* Inputs/Outputs */}
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <p className="text-xs text-zinc-500 mb-1">输入</p>
-                  <div className="space-y-1">
-                    {skill.inputs.slice(0, 2).map((input, i) => (
-                      <p key={i} className="text-xs text-zinc-400 truncate">• {input}</p>
-                    ))}
-                    {skill.inputs.length > 2 && (
-                      <p className="text-xs text-zinc-500">+{skill.inputs.length - 2} 更多</p>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500 mb-1">输出</p>
-                  <div className="space-y-1">
-                    {skill.outputs.slice(0, 2).map((output, i) => (
-                      <p key={i} className="text-xs text-zinc-400 truncate">• {output}</p>
-                    ))}
-                    {skill.outputs.length > 2 && (
-                      <p className="text-xs text-zinc-500">+{skill.outputs.length - 2} 更多</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-              
-              {/* Tools */}
-              <div className="mb-4">
-                <p className="text-xs text-zinc-500 mb-2">使用工具</p>
-                <div className="flex flex-wrap gap-1">
-                  {skill.tools.map((tool, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs">
-                      {tool}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Permissions */}
-              <div className="pt-3 border-t border-zinc-800">
-                <p className="text-xs text-zinc-500 mb-2">权限</p>
-                <div className="flex flex-wrap gap-2">
-                  <div className={`flex items-center gap-1 text-xs ${
-                    skill.permissions.readFiles ? 'text-emerald-400' : 'text-zinc-600'
-                  }`}>
-                    {skill.permissions.readFiles ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                    读文件
-                  </div>
-                  <div className={`flex items-center gap-1 text-xs ${
-                    skill.permissions.writeFiles ? 'text-emerald-400' : 'text-zinc-600'
-                  }`}>
-                    {skill.permissions.writeFiles ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                    写文件
-                  </div>
-                  <div className={`flex items-center gap-1 text-xs ${
-                    skill.permissions.executeCode ? 'text-emerald-400' : 'text-zinc-600'
-                  }`}>
-                    {skill.permissions.executeCode ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                    执行代码
-                  </div>
-                  <div className={`flex items-center gap-1 text-xs ${
-                    skill.permissions.externalNetwork ? 'text-emerald-400' : 'text-zinc-600'
-                  }`}>
-                    {skill.permissions.externalNetwork ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                    外部网络
-                  </div>
-                </div>
-              </div>
-              
-              {/* Actions */}
-              <div className="flex items-center gap-2 mt-4">
-                <Button variant="outline" size="sm" className="flex-1">
-                  <Settings className="h-4 w-4 mr-2" />
-                  配置
-                </Button>
-                <Button variant="outline" size="sm" className="flex-1">
-                  <Shield className="h-4 w-4 mr-2" />
-                  权限
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
-      {/* Skill Definition */}
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle>Skill 定义格式</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="font-mono text-sm text-zinc-400">
-            <pre className="p-4 rounded-lg bg-zinc-900 overflow-auto">
-{`name: prd-writer
-description: 将用户想法、赛题、调研资料转化为结构化 PRD
-version: 0.1.0
-trigger:
-  - 用户需要产品需求文档
-  - 用户选择了项目方向
-inputs:
-  - project_goal
-  - target_users
-  - competition_rules
-  - retrieved_context
-outputs:
-  - prd.md
-  - user_stories.json
-  - feature_priority_table.json
-tools:
-  - document_reader
-  - rag_search
-  - citation_checker
-permissions:
-  read_files: true
-  write_files: false
-  execute_code: false
-  external_network: false
-requires_approval: false`}
-            </pre>
-          </div>
-        </CardContent>
-      </Card>
+                {skill.trigger && skill.trigger.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">触发条件</p>
+                    <div className="flex flex-wrap gap-1">
+                      {skill.trigger.map((t, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">{t}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-4 text-xs text-muted-foreground">
+                  {skill.inputs && skill.inputs.length > 0 && (
+                    <span className="flex items-center gap-1">
+                      <FileInput className="h-3 w-3" />
+                      输入: {skill.inputs.join(', ')}
+                    </span>
+                  )}
+                  {skill.outputs && skill.outputs.length > 0 && (
+                    <span className="flex items-center gap-1">
+                      <FileOutput className="h-3 w-3" />
+                      输出: {skill.outputs.join(', ')}
+                    </span>
+                  )}
+                </div>
+
+                {skill.tools && skill.tools.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {skill.tools.map((t, i) => (
+                      <Badge key={i} variant="secondary" className="text-xs">{t}</Badge>
+                    ))}
+                  </div>
+                )}
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => toggleMutation.mutate({ name: skill.name, is_enabled: !skill.is_enabled })}
+                >
+                  {skill.is_enabled ? '禁用' : '启用'}
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

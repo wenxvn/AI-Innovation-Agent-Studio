@@ -9,37 +9,45 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        background: '#09090B',
-        panel: '#111113',
-        card: '#18181B',
-        border: '#27272A',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        panel: 'hsl(var(--panel))',
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        border: 'hsl(var(--border))',
         primary: {
-          DEFAULT: '#FAFAFA',
-          foreground: '#09090B',
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
         },
         secondary: {
-          DEFAULT: '#A1A1AA',
-          foreground: '#09090B',
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
         },
         muted: {
-          DEFAULT: '#71717A',
-          foreground: '#FAFAFA',
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
         },
         accent: {
-          DEFAULT: '#8B5CF6',
-          foreground: '#FAFAFA',
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
         },
         success: {
-          DEFAULT: '#22C55E',
-          foreground: '#FAFAFA',
+          DEFAULT: 'hsl(var(--success))',
+          foreground: 'hsl(var(--success-foreground))',
         },
         warning: {
-          DEFAULT: '#F59E0B',
-          foreground: '#FAFAFA',
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))',
         },
         error: {
-          DEFAULT: '#F43F5E',
-          foreground: '#FAFAFA',
+          DEFAULT: 'hsl(var(--error))',
+          foreground: 'hsl(var(--error-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--error))',
+          foreground: 'hsl(var(--error-foreground))',
         },
       },
       fontFamily: {

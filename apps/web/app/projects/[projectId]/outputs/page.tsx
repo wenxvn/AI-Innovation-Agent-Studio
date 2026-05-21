@@ -1,186 +1,141 @@
 'use client'
 
 import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useParams } from 'next/navigation'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { 
-  FileText, 
-  Download, 
-  Copy, 
-  History, 
-  RefreshCw, 
-  Edit,
-  Clock,
-  User,
+import { toast } from '@/components/ui/use-toast'
+import { api, type Output } from '@/lib/api-client'
+import {
+  Loader2,
+  FileText,
+  Download,
+  Trash2,
+  Copy,
+  Eye,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
 } from 'lucide-react'
-import { outputs } from '@/lib/mock-data'
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
 export default function OutputsPage() {
+  const params = useParams()
+  const projectId = params.projectId as string
+  const queryClient = useQueryClient()
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
-  const toggleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id)
+  const { data, isLoading } = useQuery({
+    queryKey: ['outputs', projectId],
+    queryFn: () => api.outputs.list(projectId),
+    enabled: !!projectId,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.outputs.delete(projectId, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['outputs', projectId] })
+      toast({ title: '产物已删除', variant: 'success' })
+    },
+  })
+
+  const outputs = data?.data || []
+
+  const handleCopy = (content: string) => {
+    navigator.clipboard.writeText(content)
+    toast({ title: '已复制到剪贴板', variant: 'success' })
+  }
+
+  const handleDownload = (outputId: string, title: string) => {
+    const url = `${API_BASE}/api/v1/projects/${projectId}/outputs/${outputId}/download`
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${title}.md`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold mb-2">Outputs</h1>
-          <p className="text-zinc-400">系统生成的所有产物</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            导出全部
-          </Button>
-          <Button variant="primary" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            重新生成
-          </Button>
-        </div>
+    <div className="p-6 max-w-5xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Outputs</h1>
+        <p className="text-sm text-muted-foreground mt-1">Agent 生成的产物文档</p>
       </div>
 
-      {/* Output Categories */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {[
-          { type: 'prd', label: 'PRD 文档', count: 1 },
-          { type: 'architecture', label: '架构文档', count: 1 },
-          { type: 'pitch', label: '答辩材料', count: 1 },
-          { type: 'code', label: '代码骨架', count: 0 }
-        ].map((category) => (
-          <Card key={category.type} className="hover:border-violet-500/30 transition-colors cursor-pointer">
-            <CardContent className="p-4 text-center">
-              <FileText className="h-8 w-8 text-violet-400 mx-auto mb-2" />
-              <p className="text-sm font-medium">{category.label}</p>
-              <p className="text-xs text-zinc-500">{category.count} 个</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {isLoading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+        </div>
+      )}
 
-      {/* Output List */}
-      <div className="space-y-4">
-        {outputs.map((output) => (
-          <Card key={output.id} className="hover:border-zinc-700 transition-colors">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-violet-500/10">
-                    <FileText className="h-5 w-5 text-violet-400" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-base">{output.title}</CardTitle>
-                    <div className="flex items-center gap-3 mt-1">
-                      <Badge variant="accent" className="text-xs">
-                        {output.type}
-                      </Badge>
-                      <span className="text-xs text-zinc-500 flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {output.createdByAgent}
-                      </span>
-                      <span className="text-xs text-zinc-500 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {new Date(output.createdAt).toLocaleString('zh-CN')}
-                      </span>
+      {!isLoading && outputs.length === 0 && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <FileText className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">暂无产物</h3>
+            <p className="text-muted-foreground">Agent 运行后会自动生成产物</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && outputs.length > 0 && (
+        <div className="space-y-3">
+          {outputs.map((output) => {
+            const isExpanded = expandedId === output.id
+            return (
+              <Card key={output.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <FileText className="h-5 w-5 text-violet-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{output.title}</p>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                          <Badge variant="secondary" className="text-xs">{output.output_type}</Badge>
+                          <span>v{output.version}</span>
+                          {output.created_by_agent && <span>by {output.created_by_agent}</span>}
+                          <span>{new Date(output.created_at).toLocaleString('zh-CN')}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setExpandedId(isExpanded ? null : output.id)}>
+                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleCopy(output.content)}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownload(output.id, output.title)}>
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-error"
+                        onClick={() => { if (confirm('确定删除?')) deleteMutation.mutate(output.id) }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-xs">
-                    v{output.version}
-                  </Badge>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Download className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <History className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8"
-                    onClick={() => toggleExpand(output.id)}
-                  >
-                    {expandedId === output.id ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            
-            {expandedId === output.id && (
-              <CardContent>
-                <div className="p-4 rounded-lg bg-zinc-900 border border-zinc-800">
-                  <pre className="text-sm text-zinc-300 whitespace-pre-wrap font-sans">
-                    {output.content}
-                  </pre>
-                </div>
-              </CardContent>
-            )}
-          </Card>
-        ))}
-      </div>
 
-      {/* Empty State for Code */}
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle>代码骨架</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-12">
-            <FileText className="h-12 w-12 text-zinc-600 mx-auto mb-4" />
-            <p className="text-zinc-400 mb-2">暂无生成的代码骨架</p>
-            <p className="text-sm text-zinc-500 mb-4">
-              完成架构设计后，Coding Agent 将自动生成前后端代码骨架
-            </p>
-            <Button variant="primary" size="sm">
-              生成代码骨架
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Export Options */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>导出选项</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { format: 'Markdown', description: '标准 Markdown 格式', icon: FileText },
-              { format: 'DOCX', description: 'Microsoft Word 文档', icon: FileText },
-              { format: 'PPT 大纲', description: 'PowerPoint 演示大纲', icon: FileText },
-              { format: 'GitHub README', description: 'GitHub 项目文档', icon: FileText }
-            ].map((format) => {
-              const Icon = format.icon
-              return (
-                <Button key={format.format} variant="outline" className="h-auto p-4 flex flex-col items-start">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Icon className="h-4 w-4 text-violet-400" />
-                    <span className="font-medium">{format.format}</span>
-                  </div>
-                  <p className="text-xs text-zinc-500 text-left">{format.description}</p>
-                </Button>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                  {isExpanded && (
+                    <div className="mt-4 border-t border-border/30 pt-4">
+                      <pre className="text-sm whitespace-pre-wrap p-4 rounded-lg bg-muted/10 border border-border/30 max-h-96 overflow-auto">
+                        {output.content}
+                      </pre>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

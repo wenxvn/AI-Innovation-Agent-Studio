@@ -1,10 +1,26 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+from app.core.config import get_settings
+from app.api.v1.router import router as v1_router
+from app.db.init_db import init_db
+from app.db.session import engine
+
+settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+    engine.dispose()
+
 
 app = FastAPI(
     title="AI Innovation Agent Studio API",
     description="智创工坊后端 API",
-    version="0.1.0"
+    version="0.2.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -15,61 +31,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(v1_router)
+
 
 @app.get("/")
 async def root():
-    return {"message": "AI Innovation Agent Studio API"}
+    return {"message": "AI Innovation Agent Studio API", "version": "0.2.0"}
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
-
-
-@app.get("/api/v1/projects")
-async def list_projects():
+    db_ok = False
+    try:
+        from sqlalchemy import text
+        from app.db.session import SessionLocal
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db_ok = True
+        db.close()
+    except Exception:
+        pass
     return {
-        "projects": [
-            {
-                "id": "demo-project-001",
-                "name": "面向高校 AI 创新竞赛的多智能体项目孵化平台",
-                "status": "active",
-                "progress": 65
-            }
-        ]
-    }
-
-
-@app.get("/api/v1/projects/{project_id}")
-async def get_project(project_id: str):
-    return {
-        "id": project_id,
-        "name": "面向高校 AI 创新竞赛的多智能体项目孵化平台",
-        "description": "一个工程级 AI Agent 平台",
-        "status": "active",
-        "current_stage": "Architecture Design",
-        "progress": 65
-    }
-
-
-@app.get("/api/v1/skills")
-async def list_skills():
-    return {
-        "skills": [
-            {"name": "competition-analyzer", "version": "0.1.0"},
-            {"name": "idea-generator", "version": "0.1.0"},
-            {"name": "prd-writer", "version": "0.1.0"},
-            {"name": "architecture-designer", "version": "0.1.0"},
-        ]
-    }
-
-
-@app.get("/api/v1/tools")
-async def list_tools():
-    return {
-        "tools": [
-            {"name": "File Tool", "permission_level": "high"},
-            {"name": "RAG Search Tool", "permission_level": "low"},
-            {"name": "Web Search Tool", "permission_level": "medium"},
-        ]
+        "status": "ok" if db_ok else "degraded",
+        "database": "connected" if db_ok else "disconnected",
+        "version": "0.2.0",
     }

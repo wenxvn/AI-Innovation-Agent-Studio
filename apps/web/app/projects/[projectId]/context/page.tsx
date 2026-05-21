@@ -1,226 +1,133 @@
 'use client'
 
+import { useQuery } from '@tanstack/react-query'
+import { useParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Target, 
-  AlertTriangle, 
-  Database, 
-  Brain, 
-  FileText, 
-  Wrench,
-  CheckCircle2,
-  Clock,
-  Shield
-} from 'lucide-react'
-import { contextPack } from '@/lib/mock-data'
+import { api, type Memory, type Document } from '@/lib/api-client'
+import { Loader2, Database, Brain, FileText, Search } from 'lucide-react'
 
 export default function ContextPage() {
+  const params = useParams()
+  const projectId = params.projectId as string
+
+  const { data: memData, isLoading: memLoading } = useQuery({
+    queryKey: ['memories', projectId],
+    queryFn: () => api.memory.list(projectId),
+    enabled: !!projectId,
+  })
+
+  const { data: docData, isLoading: docLoading } = useQuery({
+    queryKey: ['documents', projectId],
+    queryFn: () => api.documents.list(projectId),
+    enabled: !!projectId,
+  })
+
+  const memories = memData?.data || []
+  const documents = docData?.data || []
+  const isLoading = memLoading || docLoading
+  const totalChunks = documents.reduce((sum, d) => sum + d.chunk_count, 0)
+
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-5xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Context Pack Viewer</h1>
-        <p className="text-zinc-400">当前 Agent 执行的上下文包</p>
+        <h1 className="text-2xl font-bold">Context Pack</h1>
+        <p className="text-sm text-muted-foreground mt-1">项目上下文信息总览</p>
       </div>
 
-      {/* Context Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-violet-400" />
-              <CardTitle>任务目标</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-xs text-zinc-500 mb-1">任务</p>
-              <p className="text-sm">{contextPack.task}</p>
-            </div>
-            <div>
-              <p className="text-xs text-zinc-500 mb-1">目标</p>
-              <p className="text-sm">{contextPack.goal}</p>
-            </div>
-            <div>
-              <p className="text-xs text-zinc-500 mb-1">当前阶段</p>
-              <Badge variant="accent">{contextPack.currentStage}</Badge>
-            </div>
-          </CardContent>
-        </Card>
+      {isLoading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+        </div>
+      )}
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-amber-400" />
-              <CardTitle>约束条件</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {contextPack.constraints.map((constraint, index) => (
-                <li key={index} className="flex items-start gap-2 text-sm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
-                  {constraint}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
+      {!isLoading && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-6 text-center">
+                <Brain className="h-8 w-8 mx-auto text-violet-500 mb-2" />
+                <p className="text-2xl font-bold">{memories.length}</p>
+                <p className="text-sm text-muted-foreground">Memory 条目</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <FileText className="h-8 w-8 mx-auto text-blue-500 mb-2" />
+                <p className="text-2xl font-bold">{documents.length}</p>
+                <p className="text-sm text-muted-foreground">文档数量</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6 text-center">
+                <Search className="h-8 w-8 mx-auto text-cyan-500 mb-2" />
+                <p className="text-2xl font-bold">{totalChunks}</p>
+                <p className="text-sm text-muted-foreground">可检索 Chunks</p>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* Memory and Evidence */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-blue-400" />
-              <CardTitle>相关记忆</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {contextPack.relevantMemory.map((memory, index) => (
-              <div key={index} className="p-3 rounded-lg bg-zinc-900/50 border border-zinc-800">
-                <div className="flex items-center justify-between mb-2">
-                  <Badge variant="secondary" className="text-xs">
-                    {memory.memoryType}
-                  </Badge>
-                  <span className="text-xs text-zinc-500">
-                    置信度: {(memory.confidence * 100).toFixed(0)}%
-                  </span>
-                </div>
-                <p className="text-sm text-zinc-300">{memory.content}</p>
-                <p className="text-xs text-zinc-600 mt-2">来源: {memory.source}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Database className="h-5 w-5 text-cyan-400" />
-              <CardTitle>检索证据</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {contextPack.retrievedEvidence.map((evidence, index) => (
-              <div key={index} className="p-3 rounded-lg bg-zinc-900/50 border border-zinc-800">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-zinc-400">{evidence.sourceDocument}</span>
-                  <Badge variant="success" className="text-xs">
-                    相关度: {(evidence.score * 100).toFixed(0)}%
-                  </Badge>
-                </div>
-                <p className="text-sm text-zinc-300">{evidence.content}</p>
-                <p className="text-xs text-zinc-600 mt-2">Chunk ID: {evidence.chunkId}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Decisions and Risks */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-              <CardTitle>已做决策</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {contextPack.decisionsSoFar.map((decision, index) => (
-                <li key={index} className="flex items-start gap-2 text-sm text-zinc-300">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                  {decision}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-400" />
-              <CardTitle>风险点</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {contextPack.risks.map((risk, index) => (
-                <li key={index} className="flex items-start gap-2 text-sm text-zinc-300">
-                  <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                  {risk}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-red-400" />
-              <CardTitle>禁止事项</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {contextPack.doNotDo.map((item, index) => (
-                <li key={index} className="flex items-start gap-2 text-sm text-zinc-300">
-                  <div className="w-4 h-4 rounded-full bg-red-500/20 flex items-center justify-center mt-0.5 flex-shrink-0">
-                    <span className="text-red-400 text-xs">✕</span>
+          {memories.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-violet-500" />
+                  Relevant Memory
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {memories.slice(0, 10).map((mem) => (
+                  <div key={mem.id} className="p-3 rounded-lg bg-muted/10 border border-border/30">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="accent" className="text-xs">{mem.memory_type}</Badge>
+                      <span className="text-xs text-muted-foreground">可信度 {(mem.confidence * 100).toFixed(0)}%</span>
+                    </div>
+                    <p className="text-sm">{mem.content}</p>
                   </div>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
-      {/* Expected Output */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-violet-400" />
-            <CardTitle>期望输出</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
-            <p className="text-sm text-zinc-300">{contextPack.expectedOutput}</p>
-          </div>
-        </CardContent>
-      </Card>
+          {documents.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Database className="h-4 w-4 text-blue-500" />
+                  Retrieved Evidence
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {documents.map((doc) => (
+                  <div key={doc.id} className="p-3 rounded-lg bg-muted/10 border border-border/30">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-violet-500" />
+                        <span className="font-medium">{doc.filename}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={doc.status === 'indexed' ? 'success' : 'warning'} className="text-xs">{doc.status}</Badge>
+                        <span className="text-xs text-muted-foreground">{doc.chunk_count} chunks</span>
+                      </div>
+                    </div>
+                    {doc.summary && <p className="text-xs text-muted-foreground mt-2">{doc.summary}</p>}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
-      {/* Context Structure */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>上下文结构</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="font-mono text-sm text-zinc-400">
-            <pre className="p-4 rounded-lg bg-zinc-900 overflow-auto">
-{`Context Pack
-├── Goal: ${contextPack.goal}
-├── Constraints: ${contextPack.constraints.length} 条
-├── Project State
-│   ├── Name: ${contextPack.projectState.name}
-│   └── Progress: ${contextPack.projectState.progress}%
-├── Memory: ${contextPack.relevantMemory.length} 条
-│   ├── User Memory
-│   └── Project Memory
-├── Evidence: ${contextPack.retrievedEvidence.length} 条
-├── Decisions: ${contextPack.decisionsSoFar.length} 条
-├── Risks: ${contextPack.risks.length} 条
-└── Expected Output: ${contextPack.expectedOutput}`}
-            </pre>
-          </div>
-        </CardContent>
-      </Card>
+          {!isLoading && memories.length === 0 && documents.length === 0 && (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Database className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
+                <h3 className="text-lg font-semibold mb-2">暂无上下文</h3>
+                <p className="text-muted-foreground">上传文档或运行 Agent 以积累上下文信息</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,209 +1,179 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { 
-  Wrench, 
-  Search, 
-  Settings, 
-  Shield, 
-  AlertTriangle,
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { toast } from '@/components/ui/use-toast'
+import { api, type Tool, type ToolCall } from '@/lib/api-client'
+import {
+  Loader2,
+  Wrench,
+  Shield,
   CheckCircle2,
+  XCircle,
   Clock,
-  Zap,
-  BarChart3
+  AlertTriangle,
 } from 'lucide-react'
-import { tools } from '@/lib/mock-data'
-
-const getPermissionColor = (level: string) => {
-  switch (level) {
-    case 'low': return 'success'
-    case 'medium': return 'warning'
-    case 'high': return 'error'
-    default: return 'secondary'
-  }
-}
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export default function ToolsPage() {
+  const params = useParams()
+  const projectId = params.projectId as string
+  const queryClient = useQueryClient()
+
+  const { data: toolsData, isLoading: toolsLoading } = useQuery({
+    queryKey: ['tools'],
+    queryFn: () => api.tools.list(),
+  })
+
+  const { data: callsData, isLoading: callsLoading } = useQuery({
+    queryKey: ['tool-calls', projectId],
+    queryFn: () => api.tools.listCalls(projectId),
+    enabled: !!projectId,
+  })
+
+  const approveMutation = useMutation({
+    mutationFn: (callId: string) => api.tools.approve(projectId, callId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tool-calls', projectId] })
+      toast({ title: '已批准', variant: 'success' })
+    },
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: (callId: string) => api.tools.reject(projectId, callId, ''),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tool-calls', projectId] })
+      toast({ title: '已拒绝', variant: 'success' })
+    },
+  })
+
+  const tools = toolsData?.tools || []
+  const calls = callsData?.data || []
+
+  const PERMISSION_COLOR: Record<string, string> = {
+    low: 'text-success',
+    medium: 'text-warning',
+    high: 'text-error',
+  }
+
+  const CALL_STATUS: Record<string, { icon: React.ElementType; variant: 'success' | 'warning' | 'destructive' | 'secondary'; label: string }> = {
+    completed: { icon: CheckCircle2, variant: 'success', label: '完成' },
+    pending: { icon: Clock, variant: 'warning', label: '待审批' },
+    approved: { icon: CheckCircle2, variant: 'success', label: '已批准' },
+    rejected: { icon: XCircle, variant: 'destructive', label: '已拒绝' },
+  }
+
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold mb-2">Tool Gateway</h1>
-          <p className="text-zinc-400">管理和监控工具调用</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Search className="h-4 w-4 mr-2" />
-            搜索工具
-          </Button>
-          <Button variant="primary" size="sm">
-            <Settings className="h-4 w-4 mr-2" />
-            工具配置
-          </Button>
-        </div>
+    <div className="p-6 max-w-5xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Tools</h1>
+        <p className="text-sm text-muted-foreground mt-1">管理 Agent 可用工具和审批记录</p>
       </div>
 
-      {/* Tools Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {tools.map((tool) => (
-          <Card key={tool.id} className="hover:border-violet-500/30 transition-colors">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-violet-500/10">
-                    <Wrench className="h-5 w-5 text-violet-400" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-base">{tool.name}</CardTitle>
-                    <p className="text-xs text-zinc-500">{tool.description}</p>
-                  </div>
-                </div>
-                <Badge variant={getPermissionColor(tool.permissionLevel)} className="text-xs">
-                  {tool.permissionLevel}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <div className="p-2 rounded-lg bg-zinc-900 text-center">
-                  <p className="text-xs text-zinc-500">调用次数</p>
-                  <p className="text-sm font-semibold">{tool.recentCalls}</p>
-                </div>
-                <div className="p-2 rounded-lg bg-zinc-900 text-center">
-                  <p className="text-xs text-zinc-500">成功率</p>
-                  <p className="text-sm font-semibold text-emerald-400">{tool.successRate}%</p>
-                </div>
-                <div className="p-2 rounded-lg bg-zinc-900 text-center">
-                  <p className="text-xs text-zinc-500">平均耗时</p>
-                  <p className="text-sm font-semibold">{tool.avgLatencyMs}ms</p>
-                </div>
-              </div>
-              
-              {/* Schema */}
-              <div className="mb-4">
-                <p className="text-xs text-zinc-500 mb-2">输入 Schema</p>
-                <div className="p-2 rounded bg-zinc-900 font-mono text-xs text-zinc-400">
-                  {JSON.stringify(tool.inputSchema, null, 2)}
-                </div>
-              </div>
-              
-              <div className="mb-4">
-                <p className="text-xs text-zinc-500 mb-2">输出 Schema</p>
-                <div className="p-2 rounded bg-zinc-900 font-mono text-xs text-zinc-400">
-                  {JSON.stringify(tool.outputSchema, null, 2)}
-                </div>
-              </div>
-              
-              {/* Permissions */}
-              <div className="flex items-center justify-between pt-3 border-t border-zinc-800">
-                <div className="flex items-center gap-2">
-                  {tool.requiresApproval ? (
-                    <Badge variant="warning" className="text-xs">
-                      <AlertTriangle className="h-3 w-3 mr-1" />
-                      需要审批
-                    </Badge>
-                  ) : (
-                    <Badge variant="success" className="text-xs">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      自动执行
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 text-xs text-zinc-500">
-                  <Clock className="h-3 w-3" />
-                  {tool.timeoutSeconds}s 超时
-                </div>
-              </div>
-              
-              {/* Actions */}
-              <div className="flex items-center gap-2 mt-4">
-                <Button variant="outline" size="sm" className="flex-1">
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  统计
-                </Button>
-                <Button variant="outline" size="sm" className="flex-1">
-                  <Settings className="h-4 w-4 mr-2" />
-                  配置
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Tabs defaultValue="registry">
+        <TabsList>
+          <TabsTrigger value="registry">工具注册表</TabsTrigger>
+          <TabsTrigger value="calls">调用记录 ({calls.length})</TabsTrigger>
+        </TabsList>
 
-      {/* Tool Call History */}
-      <Card className="mt-8">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>最近工具调用</CardTitle>
-            <Button variant="ghost" size="sm">
-              查看全部
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {[
-              { tool: 'RAG Search Tool', agent: 'Research Agent', status: 'completed', time: '2s', cost: '$0.001' },
-              { tool: 'File Tool', agent: 'Architecture Agent', status: 'completed', time: '50ms', cost: '$0.0001' },
-              { tool: 'Web Search Tool', agent: 'Research Agent', status: 'completed', time: '1.5s', cost: '$0.002' },
-              { tool: 'Eval Tool', agent: 'Product Agent', status: 'completed', time: '2.5s', cost: '$0.003' }
-            ].map((call, index) => (
-              <div key={index} className="flex items-center justify-between p-3 rounded-lg border border-zinc-800">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 rounded bg-violet-500/10">
-                    <Wrench className="h-4 w-4 text-violet-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{call.tool}</p>
-                    <p className="text-xs text-zinc-500">{call.agent}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-xs text-zinc-500">{call.time}</span>
-                  <span className="text-xs text-zinc-500">{call.cost}</span>
-                  <Badge variant="success" className="text-xs">
-                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                    成功
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="registry" className="mt-4">
+          {toolsLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {tools.map((tool, i) => (
+                <Card key={i}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Wrench className="h-4 w-4 text-violet-500" />
+                        {tool.name}
+                      </CardTitle>
+                      <Badge variant={tool.permission_level === 'high' ? 'destructive' : tool.permission_level === 'medium' ? 'warning' : 'success'}>
+                        <Shield className="h-3 w-3 mr-1" />
+                        {tool.permission_level}
+                      </Badge>
+                    </div>
+                    <CardDescription>{tool.description || '暂无描述'}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      {tool.requires_approval && (
+                        <span className="flex items-center gap-1 text-warning">
+                          <AlertTriangle className="h-3 w-3" />
+                          需要审批
+                        </span>
+                      )}
+                      {tool.timeout_seconds && <span>超时: {tool.timeout_seconds}s</span>}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
 
-      {/* High Risk Tools */}
-      <Card className="mt-6">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-amber-400" />
-            <CardTitle>高风险工具 (需人工确认)</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {[
-              '执行 shell 命令',
-              '删除文件',
-              '修改数据库',
-              '提交 GitHub PR',
-              '调用外部付费 API',
-              '部署服务',
-              '发送邮件',
-              '覆盖已有代码'
-            ].map((action, index) => (
-              <div key={index} className="flex items-center gap-2 text-sm text-zinc-400">
-                <AlertTriangle className="h-4 w-4 text-amber-400" />
-                {action}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="calls" className="mt-4">
+          {callsLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+            </div>
+          ) : calls.length === 0 ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Wrench className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
+                <h3 className="text-lg font-semibold mb-2">暂无调用记录</h3>
+                <p className="text-muted-foreground">Agent 运行时的工具调用会记录在这里</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {calls.map((call) => {
+                const status = CALL_STATUS[call.status] || CALL_STATUS.pending
+                const StatusIcon = status.icon
+                return (
+                  <Card key={call.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Wrench className="h-5 w-5 text-violet-500" />
+                          <div>
+                            <p className="font-medium">{call.tool_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(call.created_at).toLocaleString('zh-CN')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={status.variant}>
+                            <StatusIcon className="h-3 w-3 mr-1" />
+                            {status.label}
+                          </Badge>
+                          {call.status === 'pending' && (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => approveMutation.mutate(call.id)}>
+                                <CheckCircle2 className="h-4 w-4 mr-1 text-success" /> 批准
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => rejectMutation.mutate(call.id)}>
+                                <XCircle className="h-4 w-4 mr-1 text-error" /> 拒绝
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

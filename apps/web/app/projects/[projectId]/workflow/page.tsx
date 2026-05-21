@@ -1,370 +1,295 @@
 'use client'
 
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { 
-  Play, 
-  Pause, 
-  RotateCcw, 
-  ZoomIn, 
-  ZoomOut, 
-  Maximize,
+import { api, type AgentRun, type TraceEvent } from '@/lib/api-client'
+import {
+  Loader2,
+  GitBranch,
   CheckCircle2,
   Clock,
   AlertCircle,
-  Zap,
-  ArrowRight
+  ArrowDown,
+  Brain,
+  Search,
+  FileText,
+  Code,
+  Bug,
+  Mic,
+  Settings,
+  ChevronDown,
+  ChevronUp,
+  Activity,
+  BarChart3,
+  Database,
+  Wrench,
 } from 'lucide-react'
 
-interface WorkflowNode {
-  id: string
-  label: string
-  agent: string
-  skill: string
-  status: 'completed' | 'running' | 'pending' | 'failed' | 'waiting_approval'
-  toolCalls: number
-  duration: string
-  evalScore?: number
-  x: number
-  y: number
-}
-
-const workflowNodes: WorkflowNode[] = [
-  {
-    id: 'start',
-    label: 'Start',
-    agent: '',
-    skill: '',
-    status: 'completed',
-    toolCalls: 0,
-    duration: '0s',
-    x: 400,
-    y: 50
-  },
-  {
-    id: 'requirement',
-    label: 'Requirement Analysis',
-    agent: 'Requirement Agent',
-    skill: 'competition-analyzer',
-    status: 'completed',
-    toolCalls: 3,
-    duration: '2m',
-    evalScore: 92,
-    x: 400,
-    y: 150
-  },
-  {
-    id: 'research',
-    label: 'Research',
-    agent: 'Research Agent',
-    skill: 'research-synthesizer',
-    status: 'completed',
-    toolCalls: 5,
-    duration: '5m',
-    evalScore: 88,
-    x: 400,
-    y: 250
-  },
-  {
-    id: 'product',
-    label: 'Product Design',
-    agent: 'Product Agent',
-    skill: 'prd-writer',
-    status: 'completed',
-    toolCalls: 2,
-    duration: '8m',
-    evalScore: 95,
-    x: 400,
-    y: 350
-  },
-  {
-    id: 'architecture',
-    label: 'Architecture',
-    agent: 'Architecture Agent',
-    skill: 'architecture-designer',
-    status: 'running',
-    toolCalls: 1,
-    duration: '3m',
-    x: 400,
-    y: 450
-  },
-  {
-    id: 'coding',
-    label: 'Code Generation',
-    agent: 'Coding Agent',
-    skill: 'fastapi-generator',
-    status: 'pending',
-    toolCalls: 0,
-    duration: '-',
-    x: 400,
-    y: 550
-  },
-  {
-    id: 'qa',
-    label: 'QA & Testing',
-    agent: 'QA Agent',
-    skill: 'qa-debugger',
-    status: 'pending',
-    toolCalls: 0,
-    duration: '-',
-    x: 400,
-    y: 650
-  },
-  {
-    id: 'pitch',
-    label: 'Pitch Materials',
-    agent: 'Pitch Agent',
-    skill: 'pitch-writer',
-    status: 'pending',
-    toolCalls: 0,
-    duration: '-',
-    x: 400,
-    y: 750
-  },
-  {
-    id: 'end',
-    label: 'End',
-    agent: '',
-    skill: '',
-    status: 'pending',
-    toolCalls: 0,
-    duration: '-',
-    x: 400,
-    y: 850
-  }
+const WORKFLOW_NODES = [
+  { id: 'start', label: 'Start', icon: GitBranch, agent: '' },
+  { id: 'competition-analyzer', label: '竞赛分析', icon: Search, agent: 'Research Agent' },
+  { id: 'idea-generator', label: '创意生成', icon: Brain, agent: 'Product Agent' },
+  { id: 'prd-writer', label: 'PRD 撰写', icon: FileText, agent: 'Product Agent' },
+  { id: 'architecture-designer', label: '架构设计', icon: Settings, agent: 'Architecture Agent' },
+  { id: 'research-synthesizer', label: '调研综合', icon: Search, agent: 'Research Agent' },
+  { id: 'fastapi-generator', label: '后端生成', icon: Code, agent: 'Coding Agent' },
+  { id: 'nextjs-generator', label: '前端生成', icon: Code, agent: 'Coding Agent' },
+  { id: 'qa-debugger', label: 'QA 调试', icon: Bug, agent: 'QA Agent' },
+  { id: 'pitch-writer', label: '答辩撰写', icon: Mic, agent: 'Pitch Agent' },
+  { id: 'end', label: 'End', icon: CheckCircle2, agent: '' },
 ]
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'completed': return 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-    case 'running': return 'bg-blue-500/20 border-blue-500 text-blue-400 animate-pulse'
-    case 'failed': return 'bg-red-500/20 border-red-500 text-red-400'
-    case 'waiting_approval': return 'bg-yellow-500/20 border-yellow-500 text-yellow-400'
-    default: return 'bg-zinc-800 border-zinc-700 text-zinc-500'
-  }
-}
-
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'completed': return <CheckCircle2 className="h-5 w-5" />
-    case 'running': return <Clock className="h-5 w-5 animate-spin" />
-    case 'failed': return <AlertCircle className="h-5 w-5" />
-    default: return <div className="w-3 h-3 rounded-full bg-current" />
-  }
-}
-
 export default function WorkflowPage() {
+  const params = useParams()
+  const projectId = params.projectId as string
+  const [selectedNode, setSelectedNode] = useState<string | null>(null)
+
+  const { data: runsData, isLoading } = useQuery({
+    queryKey: ['agent-runs', projectId],
+    queryFn: () => api.agents.listRuns(projectId),
+    enabled: !!projectId,
+  })
+
+  const runs = runsData?.data || []
+
+  const runBySkill = new Map<string, AgentRun>()
+  runs.forEach((run) => {
+    if (run.selected_skill && !runBySkill.has(run.selected_skill)) {
+      runBySkill.set(run.selected_skill, run)
+    }
+  })
+
+  const selectedRun = selectedNode ? runBySkill.get(selectedNode) : null
+
+  const { data: traceData } = useQuery({
+    queryKey: ['run-trace', projectId, selectedRun?.id],
+    queryFn: () => api.trace.listRunTrace(projectId, selectedRun!.id),
+    enabled: !!projectId && !!selectedRun?.id,
+  })
+
+  const traceEvents = traceData?.data || []
+
+  const getNodeStatus = (nodeId: string): 'pending' | 'running' | 'success' | 'failed' => {
+    const run = runBySkill.get(nodeId)
+    if (!run) return 'pending'
+    if (run.status === 'completed') return 'success'
+    if (run.status === 'failed') return 'failed'
+    return 'running'
+  }
+
+  const STATUS_STYLE: Record<string, { bg: string; border: string; icon: React.ElementType }> = {
+    pending: { bg: 'bg-muted/20', border: 'border-border/50', icon: Clock },
+    running: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', icon: Loader2 },
+    success: { bg: 'bg-success/10', border: 'border-success/30', icon: CheckCircle2 },
+    failed: { bg: 'bg-error/10', border: 'border-error/30', icon: AlertCircle },
+  }
+
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b border-border/50 p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold">Workflow Canvas</h1>
-            <p className="text-sm text-zinc-500">可视化 Agent 工作流</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <Play className="h-4 w-4 mr-2" />
-              运行
-            </Button>
-            <Button variant="outline" size="sm">
-              <Pause className="h-4 w-4 mr-2" />
-              暂停
-            </Button>
-            <Button variant="outline" size="sm">
-              <RotateCcw className="h-4 w-4 mr-2" />
-              重置
-            </Button>
-            <div className="h-4 w-px bg-zinc-700 mx-2" />
-            <Button variant="ghost" size="icon">
-              <ZoomIn className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon">
-              <ZoomOut className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon">
-              <Maximize className="h-4 w-4" />
-            </Button>
-          </div>
+    <div className="flex h-full">
+      <div className="flex-1 p-6 overflow-auto">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Workflow</h1>
+          <p className="text-sm text-muted-foreground mt-1">Agent 工作流执行状态 - 点击节点查看详情</p>
         </div>
-      </div>
 
-      <div className="flex-1 flex">
-        {/* Canvas */}
-        <div className="flex-1 relative overflow-auto bg-zinc-950 p-8">
-          <div className="relative min-h-[900px]">
-            {/* Edges */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none">
-              {workflowNodes.slice(0, -1).map((node, index) => {
-                const nextNode = workflowNodes[index + 1]
-                return (
-                  <line
-                    key={`edge-${index}`}
-                    x1={node.x}
-                    y1={node.y + 30}
-                    x2={nextNode.x}
-                    y2={nextNode.y - 30}
-                    stroke={node.status === 'completed' ? '#22c55e' : '#3f3f46'}
-                    strokeWidth="2"
-                    strokeDasharray={node.status === 'running' ? '5,5' : 'none'}
-                  />
-                )
-              })}
-            </svg>
+        {isLoading && (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+          </div>
+        )}
 
-            {/* Nodes */}
-            {workflowNodes.map((node) => (
-              <div
-                key={node.id}
-                className="absolute transform -translate-x-1/2"
-                style={{ left: node.x, top: node.y }}
-              >
-                <Card className={`w-64 cursor-pointer hover:border-violet-500/50 transition-all ${getStatusColor(node.status)}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(node.status)}
-                        <span className="font-medium text-sm">{node.label}</span>
-                      </div>
-                      {node.evalScore && (
-                        <Badge variant="success" className="text-xs">
-                          {node.evalScore}
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    {node.agent && (
-                      <div className="text-xs text-zinc-400 mb-2">
-                        <div className="flex items-center gap-1 mb-1">
-                          <Zap className="h-3 w-3" />
-                          {node.agent}
+        {!isLoading && (
+          <div className="space-y-3">
+            {WORKFLOW_NODES.map((node, index) => {
+              const status = getNodeStatus(node.id)
+              const style = STATUS_STYLE[status]
+              const Icon = node.icon
+              const StatusIcon = style.icon
+              const run = runBySkill.get(node.id)
+              const isSelected = selectedNode === node.id
+
+              return (
+                <div key={node.id} className="flex flex-col items-center">
+                  <Card
+                    className={`w-full max-w-2xl cursor-pointer transition-all ${style.border} ${style.bg} ${isSelected ? 'ring-2 ring-violet-500' : ''}`}
+                    onClick={() => setSelectedNode(isSelected ? null : node.id)}
+                  >
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
+                          <Icon className="h-5 w-5 text-violet-500" />
                         </div>
-                        {node.skill && (
-                          <div className="flex items-center gap-1">
-                            <ArrowRight className="h-3 w-3" />
-                            {node.skill}
+                        <div>
+                          <p className="font-medium">{node.label}</p>
+                          {node.agent && <p className="text-xs text-muted-foreground">{node.agent}</p>}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {run && (
+                          <div className="text-xs text-muted-foreground text-right">
+                            <p>{run.token_usage?.total_tokens || 0} tokens</p>
+                            <p>{run.latency_ms}ms</p>
                           </div>
                         )}
+                        <Badge
+                          variant={status === 'success' ? 'success' : status === 'failed' ? 'destructive' : status === 'running' ? 'warning' : 'secondary'}
+                        >
+                          <StatusIcon className={`h-3 w-3 mr-1 ${status === 'running' ? 'animate-spin' : ''}`} />
+                          {status === 'pending' ? '待执行' : status === 'running' ? '执行中' : status === 'success' ? '已完成' : '失败'}
+                        </Badge>
                       </div>
-                    )}
-                    
-                    <div className="flex items-center gap-3 text-xs text-zinc-500">
-                      <span>{node.toolCalls} 工具调用</span>
-                      <span>•</span>
-                      <span>{node.duration}</span>
+                    </CardContent>
+                  </Card>
+                  {index < WORKFLOW_NODES.length - 1 && (
+                    <ArrowDown className="h-5 w-5 text-muted-foreground/30 my-1" />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {selectedNode && (
+        <div className="w-96 border-l border-border/50 p-4 overflow-auto bg-card/50">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold">节点详情</h2>
+            <p className="text-sm text-muted-foreground">{WORKFLOW_NODES.find(n => n.id === selectedNode)?.label}</p>
+          </div>
+
+          {selectedRun ? (
+            <div className="space-y-4">
+              <Card>
+                <CardContent className="p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">状态</span>
+                    <Badge variant={selectedRun.status === 'completed' ? 'success' : selectedRun.status === 'failed' ? 'destructive' : 'warning'}>
+                      {selectedRun.status}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Agent</span>
+                    <span className="text-xs">{selectedRun.agent_name}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Skill</span>
+                    <Badge variant="secondary" className="text-xs">{selectedRun.selected_skill}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">耗时</span>
+                    <span className="text-xs">{selectedRun.latency_ms}ms</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Tokens</span>
+                    <span className="text-xs">{selectedRun.token_usage?.total_tokens || 0}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {selectedRun.generated_output && (selectedRun.generated_output as Record<string, string>).title && (
+                <Card>
+                  <CardHeader className="p-3 pb-2">
+                    <CardTitle className="text-xs flex items-center gap-1">
+                      <FileText className="h-3 w-3" />
+                      生成产物
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0">
+                    <p className="text-sm font-medium">{String((selectedRun.generated_output as Record<string, string>).title)}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-3 mt-1">
+                      {String((selectedRun.generated_output as Record<string, string>).content || '').slice(0, 200)}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {selectedRun.eval_result && (selectedRun.eval_result as Record<string, unknown>).score !== undefined && (
+                <Card>
+                  <CardHeader className="p-3 pb-2">
+                    <CardTitle className="text-xs flex items-center gap-1">
+                      <BarChart3 className="h-3 w-3" />
+                      评估结果
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold">{String((selectedRun.eval_result as Record<string, unknown>).score)}</span>
+                      <Badge variant={(selectedRun.eval_result as Record<string, unknown>).result === 'pass' ? 'success' : 'destructive'}>
+                        {String((selectedRun.eval_result as Record<string, unknown>).result)}
+                      </Badge>
                     </div>
                   </CardContent>
                 </Card>
-              </div>
-            ))}
-          </div>
+              )}
+
+              {selectedRun.context_pack && (
+                <Card>
+                  <CardHeader className="p-3 pb-2">
+                    <CardTitle className="text-xs flex items-center gap-1">
+                      <Database className="h-3 w-3" />
+                      Context Pack
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0">
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p>Memory: {(selectedRun.context_pack as { relevant_memory?: unknown[] }).relevant_memory?.length || 0} 条</p>
+                      <p>Evidence: {(selectedRun.context_pack as { retrieved_evidence?: unknown[] }).retrieved_evidence?.length || 0} 条</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {traceEvents.length > 0 && (
+                <Card>
+                  <CardHeader className="p-3 pb-2">
+                    <CardTitle className="text-xs flex items-center gap-1">
+                      <Activity className="h-3 w-3" />
+                      Trace Timeline ({traceEvents.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0">
+                    <div className="space-y-1 max-h-48 overflow-auto">
+                      {traceEvents.map((event: TraceEvent) => (
+                        <div key={event.id} className="text-xs p-1.5 rounded bg-muted/10">
+                          <div className="flex items-center gap-1">
+                            <Badge className={`text-[9px] px-1 py-0 ${event.status === 'success' ? 'bg-success/20 text-success' : event.status === 'error' ? 'bg-error/20 text-error' : 'bg-blue-500/20 text-blue-500'}`}>
+                              {event.event_type}
+                            </Badge>
+                            {event.latency_ms > 0 && (
+                              <span className="text-muted-foreground">{event.latency_ms}ms</span>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground mt-0.5">{event.title}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {selectedRun.error_message && (
+                <Card className="border-error/30">
+                  <CardContent className="p-3">
+                    <p className="text-xs text-error">{selectedRun.error_message}</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <Clock className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                <p className="text-sm text-muted-foreground">该节点尚未执行</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
-
-        {/* Right Inspector */}
-        <div className="w-80 border-l border-border/50 p-4 overflow-auto">
-          <Card className="mb-4">
-            <CardHeader>
-              <CardTitle className="text-sm">选中节点</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-medium mb-1">Architecture</p>
-                  <p className="text-xs text-zinc-500">Architecture Agent</p>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Badge variant="info" className="animate-pulse">运行中</Badge>
-                  <Badge variant="secondary">architecture-designer</Badge>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-zinc-400">统计</p>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="p-2 rounded bg-zinc-900">
-                      <p className="text-zinc-500">工具调用</p>
-                      <p className="font-medium">1</p>
-                    </div>
-                    <div className="p-2 rounded bg-zinc-900">
-                      <p className="text-zinc-500">耗时</p>
-                      <p className="font-medium">3m</p>
-                    </div>
-                    <div className="p-2 rounded bg-zinc-900">
-                      <p className="text-zinc-500">Tokens</p>
-                      <p className="font-medium">1,250</p>
-                    </div>
-                    <div className="p-2 rounded bg-zinc-900">
-                      <p className="text-zinc-500">成本</p>
-                      <p className="font-medium">$0.003</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-zinc-400">输入</p>
-                  <div className="p-3 rounded bg-zinc-900 text-xs text-zinc-300">
-                    PRD 文档、技术栈偏好、约束条件
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-zinc-400">输出</p>
-                  <div className="p-3 rounded bg-zinc-900 text-xs text-zinc-300">
-                    系统架构文档、数据库设计、API 设计
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-zinc-400">下一步建议</p>
-                  <div className="p-3 rounded bg-zinc-900 text-xs text-zinc-300">
-                    生成 FastAPI 后端代码骨架
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button variant="primary" size="sm" className="flex-1">
-                    查看详情
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1">
-                    查看 Trace
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Legend */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">图例</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                <span>已完成</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
-                <span>运行中</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 rounded-full bg-zinc-600" />
-                <span>等待中</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 rounded-full bg-red-500" />
-                <span>失败</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                <span>等待审批</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
