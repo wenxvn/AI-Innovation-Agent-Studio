@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 **/node_modules/
+.pnpm-debug.log*
 .pnpm-store/
 .pnp
 .pnp.js
