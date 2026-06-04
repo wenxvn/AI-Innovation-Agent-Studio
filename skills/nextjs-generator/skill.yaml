@@ -1,0 +1,20 @@
+name: nextjs-generator
+display_name: Next.js Generator
+version: 1.0.0
+category: coding
+description: 生成 Next.js 前端代码骨架和配置文件
+enabled: true
+trigger:
+  - 用户需要前端代码
+  - 架构设计完成后
+inputs:
+  - api_design
+  - ui_requirements
+  - tech_stack
+outputs:
+  - frontend_code
+required_tools:
+  - file_writer
+  - code_formatter
+risk_level: medium
+requires_approval: true

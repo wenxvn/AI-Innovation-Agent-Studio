@@ -1,64 +1,97 @@
+import os
+import logging
+import yaml
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from app.models.tool_call import ToolCall
 from typing import Optional
 
+logger = logging.getLogger(__name__)
 
-DEFAULT_TOOLS = [
+REGISTRY_PATH = os.path.join(os.path.dirname(__file__), "..", "tools", "registry.yaml")
+
+BUILTIN_TOOLS = [
     {
-        "name": "File Tool",
-        "description": "读写本地文件系统",
-        "permission_level": "high",
-        "requires_approval": True,
-        "timeout_seconds": 30,
-    },
-    {
-        "name": "RAG Search Tool",
+        "name": "rag_search",
+        "display_name": "RAG Search",
+        "category": "retrieval",
         "description": "在项目文档中检索相关信息",
-        "permission_level": "low",
+        "risk_level": "low",
         "requires_approval": False,
         "timeout_seconds": 10,
     },
     {
-        "name": "Report Generator Tool",
-        "description": "生成结构化报告文档",
-        "permission_level": "low",
+        "name": "memory_search",
+        "display_name": "Memory Search",
+        "category": "retrieval",
+        "description": "搜索项目记忆库中的相关信息",
+        "risk_level": "low",
         "requires_approval": False,
-        "timeout_seconds": 60,
+        "timeout_seconds": 10,
     },
     {
-        "name": "Eval Tool",
-        "description": "评估生成产物质量",
-        "permission_level": "low",
+        "name": "output_writer",
+        "display_name": "Output Writer",
+        "category": "generation",
+        "description": "保存 Agent 生成的产物",
+        "risk_level": "low",
         "requires_approval": False,
-        "timeout_seconds": 15,
+        "timeout_seconds": 30,
     },
     {
-        "name": "Web Search Tool",
-        "description": "搜索互联网信息",
-        "permission_level": "medium",
-        "requires_approval": False,
-        "timeout_seconds": 20,
-    },
-    {
-        "name": "Code Executor Tool",
-        "description": "执行代码片段",
-        "permission_level": "high",
-        "requires_approval": True,
-        "timeout_seconds": 60,
-    },
-    {
-        "name": "Database Tool",
-        "description": "查询和修改数据库",
-        "permission_level": "high",
+        "name": "file_writer",
+        "display_name": "File Writer",
+        "category": "file",
+        "description": "写入本地文件系统",
+        "risk_level": "high",
         "requires_approval": True,
         "timeout_seconds": 30,
+    },
+    {
+        "name": "code_executor",
+        "display_name": "Code Executor",
+        "category": "execution",
+        "description": "执行代码片段",
+        "risk_level": "high",
+        "requires_approval": True,
+        "timeout_seconds": 60,
     },
 ]
 
 
+def _load_registry_from_yaml() -> list[dict]:
+    try:
+        abs_path = os.path.abspath(REGISTRY_PATH)
+        if not os.path.isfile(abs_path):
+            logger.warning("Tool registry YAML not found at %s, using builtin tools", abs_path)
+            return []
+
+        with open(abs_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+
+        tools = data.get("tools", [])
+        return [
+            {
+                "name": t.get("name", ""),
+                "display_name": t.get("display_name", t.get("name", "")),
+                "category": t.get("category", "general"),
+                "description": t.get("description", ""),
+                "risk_level": t.get("risk_level", "low"),
+                "requires_approval": t.get("requires_approval", False),
+                "timeout_seconds": t.get("timeout_seconds", 30),
+            }
+            for t in tools
+        ]
+    except Exception as e:
+        logger.error("Failed to load tool registry YAML: %s", e)
+        return []
+
+
 def list_tools() -> list[dict]:
-    return DEFAULT_TOOLS
+    yaml_tools = _load_registry_from_yaml()
+    if yaml_tools:
+        return yaml_tools
+    return BUILTIN_TOOLS
 
 
 def list_tool_calls(db: Session, project_id: str) -> list[ToolCall]:

@@ -1,0 +1,22 @@
+name: architecture-designer
+display_name: Architecture Designer
+version: 1.0.0
+category: architecture
+description: 生成系统架构、模块划分、数据库设计、API 设计
+enabled: true
+trigger:
+  - 用户需要架构设计
+  - PRD 生成完成后
+inputs:
+  - prd
+  - tech_stack
+  - constraints
+outputs:
+  - architecture
+  - database_schema
+  - api_design
+required_tools:
+  - diagram_generator
+  - code_analyzer
+risk_level: low
+requires_approval: false

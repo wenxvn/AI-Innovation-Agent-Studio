@@ -89,6 +89,8 @@ export const api = {
       request<{ message: string }>(`/api/v1/projects/${projectId}/memory/${memId}`, {
         method: "DELETE",
       }),
+    search: (projectId: string, query: string, mode: "semantic" | "keyword" = "semantic") =>
+      request<{ data: Memory[]; total: number; query: string; mode: string }>(`/api/v1/projects/${projectId}/memory/search?q=${encodeURIComponent(query)}&mode=${mode}`),
   },
   skills: {
     list: () =>
@@ -190,12 +192,24 @@ export const api = {
     listProjectTrace: (projectId: string, limit = 100) =>
       request<{ data: TraceEvent[]; total: number }>(`/api/v1/projects/${projectId}/trace/events?limit=${limit}`),
   },
+  workflow: {
+    getStatus: (projectId: string) =>
+      request<{ data: WorkflowStatus }>(`/api/v1/projects/${projectId}/workflow`),
+  },
   dashboard: {
     stats: () =>
       request<{ data: DashboardStats }>("/api/v1/dashboard/stats"),
   },
+  prompts: {
+    list: () =>
+      request<{ data: PromptTemplate[]; total: number }>("/api/v1/prompts"),
+    get: (name: string) =>
+      request<{ data: PromptTemplate }>(`/api/v1/prompts/${name}`),
+    stats: () =>
+      request<{ data: PromptStats }>("/api/v1/prompts/stats"),
+  },
   health: () =>
-    request<{ status: string; database: string; version: string }>("/health"),
+    request<HealthStatus>("/health"),
 };
 
 export interface Project {
@@ -288,16 +302,22 @@ export interface MemoryUpdate {
 export interface Skill {
   id: string;
   name: string;
+  display_name: string;
   description: string;
   version: string;
+  category: string;
   trigger: string[];
   inputs: string[];
   outputs: string[];
   tools: string[];
+  required_tools: string[];
   permissions: Record<string, boolean>;
+  risk_level: string;
   requires_approval: boolean;
   is_enabled: boolean;
   author: string;
+  source: string;
+  config_path: string;
   created_at: string;
   updated_at: string;
 }
@@ -323,8 +343,11 @@ export interface AgentRun {
 
 export interface Tool {
   name: string;
+  display_name?: string;
+  category?: string;
   description?: string;
-  permission_level: string;
+  risk_level?: string;
+  permission_level?: string;
   requires_approval: boolean;
   timeout_seconds?: number;
 }
@@ -446,6 +469,28 @@ export interface TraceEvent {
   updated_at: string;
 }
 
+export interface WorkflowNodeState {
+  stage_id: string;
+  label: string;
+  agent: string;
+  skill: string;
+  order: number;
+  status: string;
+  run_id: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  latency_ms: number;
+  error_message: string;
+  output_summary: string;
+}
+
+export interface WorkflowStatus {
+  project_id: string;
+  nodes: WorkflowNodeState[];
+  current_stage: string;
+  status: string;
+}
+
 export interface DashboardStats {
   project_count: number;
   active_project_count: number;
@@ -468,4 +513,34 @@ export interface DashboardStats {
     output_type: string;
     created_at: string | null;
   }>;
+}
+
+export interface HealthStatus {
+  status: string;
+  database: string;
+  redis: string;
+  storage?: {
+    backend?: string;
+    upload_dir?: string;
+    available?: boolean;
+  };
+  version: string;
+}
+
+export interface PromptTemplate {
+  name: string;
+  title: string;
+  description: string;
+  content: string;
+  category: string;
+  variables: string[];
+  version: string;
+  is_active: boolean;
+}
+
+export interface PromptStats {
+  total: number;
+  active: number;
+  categories: Record<string, number>;
+  total_variables: number;
 }

@@ -1,0 +1,16 @@
+name: api-designer
+display_name: API Designer
+version: 1.0.0
+category: architecture
+description: 设计 RESTful API 和数据模型
+enabled: true
+trigger:
+  - 架构设计阶段
+inputs:
+  - prd
+  - tech_stack
+outputs:
+  - api_doc
+required_tools: []
+risk_level: low
+requires_approval: false

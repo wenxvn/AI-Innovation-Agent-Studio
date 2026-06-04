@@ -1,0 +1,20 @@
+name: idea-generator
+display_name: Idea Generator
+version: 1.0.0
+category: ideation
+description: 根据比赛要求和用户兴趣生成多个项目方向
+enabled: true
+trigger:
+  - 用户需要项目方向
+  - 比赛分析完成后
+inputs:
+  - requirements
+  - user_preferences
+  - market_trends
+outputs:
+  - idea_report
+required_tools:
+  - rag_search
+  - web_search
+risk_level: low
+requires_approval: false

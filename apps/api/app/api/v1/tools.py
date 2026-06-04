@@ -11,7 +11,11 @@ router = APIRouter(prefix="/tools", tags=["tools"])
 @router.get("")
 def list_tools():
     items = svc.list_tools()
-    return {"tools": items, "total": len(items)}
+    return {
+        "tools": items,
+        "total": len(items),
+        "source": "yaml",
+    }
 
 
 @router.get("/projects/{project_id}/calls", response_model=ListResponse[ToolCallOut])

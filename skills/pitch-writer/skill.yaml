@@ -1,0 +1,19 @@
+name: pitch-writer
+display_name: Pitch Writer
+version: 1.0.0
+category: presentation
+description: 生成比赛答辩 PPT 和演讲稿
+enabled: true
+trigger:
+  - 用户需要答辩材料
+inputs:
+  - project_summary
+  - architecture
+  - features
+outputs:
+  - pitch
+  - slides
+required_tools:
+  - document_reader
+risk_level: low
+requires_approval: false

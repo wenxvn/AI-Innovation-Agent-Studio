@@ -14,6 +14,7 @@ from app.services.documents import search_chunks_for_agent
 from app.services.llm import get_llm_provider, get_provider_status
 from app.services.providers.mock_provider import MockLLMProvider, get_mock_response
 from app.services.trace import create_trace_event
+from app.services.intent_classifier import classify_intent
 from app.prompts.agent_run import SYSTEM_PROMPT, AGENT_RUN_PROMPT, EVAL_JUDGE_PROMPT, format_rubric_description
 from app.core.config import get_settings
 from typing import Optional
@@ -265,7 +266,8 @@ def rule_based_eval(output: dict, context_pack: dict) -> dict:
 async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -> AgentRun:
     start_time = time.time()
 
-    skill_name = data.selected_skill or select_skill(data.user_input)
+    intent_result = await classify_intent(data.user_input)
+    skill_name = data.selected_skill or intent_result.selected_skill
     agent_name = data.agent_name or AGENT_NAME_MAP.get(skill_name, "Orchestrator Agent")
 
     logger.info("Agent run started: project=%s, skill=%s, agent=%s", project_id, skill_name, agent_name)
@@ -284,6 +286,11 @@ async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -
             "provider": provider_status.llm_provider,
             "model": provider_status.llm_model,
             "mode": provider_status.llm_mode,
+            "intent": intent_result.intent,
+            "intent_confidence": intent_result.confidence,
+            "intent_reason": intent_result.reason,
+            "workflow_stage": intent_result.workflow_stage,
+            "output_type": intent_result.output_type,
         },
     )
     db.add(run)
@@ -299,12 +306,28 @@ async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -
         metadata={"skill": skill_name, "agent": agent_name, "mode": provider_status.llm_mode},
     )
 
+    create_trace_event(
+        db, project_id, run.id,
+        event_type="intent_classified",
+        title="意图识别完成",
+        message=f"Intent: {intent_result.intent}, Skill: {skill_name}, Confidence: {intent_result.confidence:.2f}",
+        status="info",
+        metadata={
+            "intent": intent_result.intent,
+            "selected_skill": skill_name,
+            "workflow_stage": intent_result.workflow_stage,
+            "output_type": intent_result.output_type,
+            "confidence": intent_result.confidence,
+            "reason": intent_result.reason,
+        },
+    )
+
     try:
         create_trace_event(
             db, project_id, run.id,
             event_type="planning_completed",
             title="规划完成",
-            message=f"选择 Skill: {skill_name}",
+            message=f"选择 Skill: {skill_name}, Workflow Stage: {intent_result.workflow_stage}",
             status="info",
         )
 

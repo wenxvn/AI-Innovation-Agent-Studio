@@ -86,8 +86,29 @@ async def health():
         db.close()
     except Exception:
         pass
+
+    redis_ok = False
+    try:
+        import redis
+        settings = get_settings()
+        r = redis.from_url(settings.REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
+        r.ping()
+        redis_ok = True
+        r.close()
+    except Exception:
+        pass
+
+    storage_info = {}
+    try:
+        from app.services.storage import get_storage_service
+        storage_info = get_storage_service().get_storage_info()
+    except Exception:
+        storage_info = {"backend": "local", "available": False}
+
     return {
         "status": "ok" if db_ok else "degraded",
         "database": "connected" if db_ok else "disconnected",
-        "version": "0.3.0",
+        "redis": "connected" if redis_ok else "disconnected",
+        "storage": storage_info,
+        "version": "0.4.0",
     }

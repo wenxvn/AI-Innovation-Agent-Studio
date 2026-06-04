@@ -1,12 +1,12 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.models.project import Project
 from app.schemas.project import ProjectCreate, ProjectUpdate
 from typing import Optional
 
 
 def list_projects(db: Session, skip: int = 0, limit: int = 20) -> tuple[list[Project], int]:
-    total = db.scalar(select(Project).count())
+    total = db.scalar(select(func.count()).select_from(Project))
     projects = db.scalars(
         select(Project).order_by(Project.updated_at.desc()).offset(skip).limit(limit)
     ).all()

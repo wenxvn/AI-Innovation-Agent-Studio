@@ -19,14 +19,15 @@ import { useTheme } from 'next-themes'
 import { WORKFLOW_NODES, WORKFLOW_EDGES } from './workflow-data'
 import { WorkflowNode, type WorkflowNodeData } from './workflow-node'
 import { WorkflowInspector } from './workflow-inspector'
-import type { AgentRun } from '@/lib/api-client'
+import type { AgentRun, WorkflowStatus } from '@/lib/api-client'
 
 interface WorkflowCanvasProps {
   projectId: string
   runs: AgentRun[]
+  workflowStatus?: WorkflowStatus
 }
 
-export function WorkflowCanvas({ projectId, runs }: WorkflowCanvasProps) {
+export function WorkflowCanvas({ projectId, runs, workflowStatus }: WorkflowCanvasProps) {
   const { theme } = useTheme()
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
 
@@ -40,15 +41,33 @@ export function WorkflowCanvas({ projectId, runs }: WorkflowCanvasProps) {
     return map
   }, [runs])
 
+  const workflowNodeMap = useMemo(() => {
+    const map = new Map<string, string>()
+    if (workflowStatus?.nodes) {
+      workflowStatus.nodes.forEach((n) => {
+        if (n.skill) {
+          map.set(n.skill, n.status)
+        }
+      })
+    }
+    return map
+  }, [workflowStatus])
+
   const getNodeStatus = useCallback(
     (nodeId: string): 'pending' | 'running' | 'success' | 'failed' => {
+      const wfStatus = workflowNodeMap.get(nodeId)
+      if (wfStatus) {
+        if (wfStatus === 'success') return 'success'
+        if (wfStatus === 'failed') return 'failed'
+        if (wfStatus === 'running' || wfStatus === 'waiting_approval') return 'running'
+      }
       const run = runBySkill.get(nodeId)
       if (!run) return 'pending'
       if (run.status === 'completed') return 'success'
       if (run.status === 'failed') return 'failed'
       return 'running'
     },
-    [runBySkill]
+    [runBySkill, workflowNodeMap]
   )
 
   const initialNodes: Node<WorkflowNodeData>[] = useMemo(() => {

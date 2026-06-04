@@ -1,0 +1,117 @@
+tools:
+  - name: rag_search
+    display_name: RAG Search
+    category: retrieval
+    description: 在项目文档中检索相关信息
+    risk_level: low
+    requires_approval: false
+    timeout_seconds: 10
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+        top_k:
+          type: integer
+
+  - name: memory_search
+    display_name: Memory Search
+    category: retrieval
+    description: 搜索项目记忆库中的相关信息
+    risk_level: low
+    requires_approval: false
+    timeout_seconds: 10
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+        top_k:
+          type: integer
+
+  - name: output_writer
+    display_name: Output Writer
+    category: generation
+    description: 保存 Agent 生成的产物
+    risk_level: low
+    requires_approval: false
+    timeout_seconds: 30
+    input_schema:
+      type: object
+      properties:
+        skill:
+          type: string
+        output_type:
+          type: string
+
+  - name: file_reader
+    display_name: File Reader
+    category: file
+    description: 读取本地文件系统
+    risk_level: medium
+    requires_approval: false
+    timeout_seconds: 30
+
+  - name: file_writer
+    display_name: File Writer
+    category: file
+    description: 写入本地文件系统
+    risk_level: high
+    requires_approval: true
+    timeout_seconds: 30
+
+  - name: web_search
+    display_name: Web Search
+    category: retrieval
+    description: 搜索互联网信息
+    risk_level: medium
+    requires_approval: false
+    timeout_seconds: 20
+
+  - name: code_executor
+    display_name: Code Executor
+    category: execution
+    description: 执行代码片段
+    risk_level: high
+    requires_approval: true
+    timeout_seconds: 60
+
+  - name: database_write
+    display_name: Database Write
+    category: database
+    description: 写入数据库
+    risk_level: high
+    requires_approval: true
+    timeout_seconds: 30
+
+  - name: embedding_generator
+    display_name: Embedding Generator
+    category: ai
+    description: 生成文本嵌入向量
+    risk_level: low
+    requires_approval: false
+    timeout_seconds: 15
+
+  - name: code_analyzer
+    display_name: Code Analyzer
+    category: analysis
+    description: 分析代码质量和结构
+    risk_level: low
+    requires_approval: false
+    timeout_seconds: 30
+
+  - name: pdf_parser
+    display_name: PDF Parser
+    category: parsing
+    description: 解析 PDF 文件内容
+    risk_level: low
+    requires_approval: false
+    timeout_seconds: 30
+
+  - name: document_reader
+    display_name: Document Reader
+    category: file
+    description: 读取文档内容
+    risk_level: low
+    requires_approval: false
+    timeout_seconds: 15

@@ -51,8 +51,8 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['var(--font-sans)', 'sans-serif'],
-        mono: ['var(--font-mono)', 'monospace'],
+        sans: ['"Helvetica Neue"', 'Arial', 'system-ui', 'sans-serif'],
+        mono: ['"Cascadia Code"', 'Consolas', '"Courier New"', 'monospace'],
       },
       borderRadius: {
         lg: '0.5rem',

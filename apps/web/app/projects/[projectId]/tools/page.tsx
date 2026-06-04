@@ -59,6 +59,12 @@ export default function ToolsPage() {
     high: 'text-error',
   }
 
+  const RISK_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'secondary'> = {
+    low: 'success',
+    medium: 'warning',
+    high: 'destructive',
+  }
+
   const CALL_STATUS: Record<string, { icon: React.ElementType; variant: 'success' | 'warning' | 'destructive' | 'secondary'; label: string }> = {
     completed: { icon: CheckCircle2, variant: 'success', label: '完成' },
     pending: { icon: Clock, variant: 'warning', label: '待审批' },
@@ -92,14 +98,17 @@ export default function ToolsPage() {
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base flex items-center gap-2">
                         <Wrench className="h-4 w-4 text-violet-500" />
-                        {tool.name}
+                        {tool.display_name || tool.name}
                       </CardTitle>
-                      <Badge variant={tool.permission_level === 'high' ? 'destructive' : tool.permission_level === 'medium' ? 'warning' : 'success'}>
+                      <Badge variant={RISK_VARIANT[tool.risk_level || tool.permission_level || 'low'] || 'secondary'}>
                         <Shield className="h-3 w-3 mr-1" />
-                        {tool.permission_level}
+                        {tool.risk_level || tool.permission_level || 'low'}
                       </Badge>
                     </div>
                     <CardDescription>{tool.description || '暂无描述'}</CardDescription>
+                    {tool.category && (
+                      <Badge variant="outline" className="text-xs mt-1 w-fit">{tool.category}</Badge>
+                    )}
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">

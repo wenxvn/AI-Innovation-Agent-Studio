@@ -1,0 +1,18 @@
+name: context-pack-builder
+display_name: Context Pack Builder
+version: 1.0.0
+category: infrastructure
+description: 构建 Context Pack，整合项目状态、Memory、检索证据
+enabled: true
+trigger:
+  - Agent 执行任务前
+inputs:
+  - task
+  - project_state
+  - memory
+outputs:
+  - context_pack
+required_tools:
+  - rag_search
+risk_level: low
+requires_approval: false

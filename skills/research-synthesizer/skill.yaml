@@ -1,0 +1,19 @@
+name: research-synthesizer
+display_name: Research Synthesizer
+version: 1.0.0
+category: research
+description: 调研技术方案、竞品、论文，生成调研报告
+enabled: true
+trigger:
+  - 用户需要调研
+  - 项目方向确定后
+inputs:
+  - research_topic
+  - existing_docs
+outputs:
+  - research_report
+required_tools:
+  - rag_search
+  - web_search
+risk_level: low
+requires_approval: false

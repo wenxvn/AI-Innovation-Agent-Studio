@@ -7,7 +7,7 @@ class ProjectCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: str = ""
     goal: str = ""
-    tech_stack: list[str] = []
+    tech_stack: list[str] = Field(default_factory=list)
     status: str = "active"
     current_stage: str = "ideation"
 

@@ -1,0 +1,18 @@
+name: qa-debugger
+display_name: QA Debugger
+version: 1.0.0
+category: quality
+description: 质量检查和调试，验证产物正确性
+enabled: true
+trigger:
+  - 产物生成完成后
+inputs:
+  - output
+  - requirements
+outputs:
+  - test_report
+required_tools:
+  - code_analyzer
+  - test_runner
+risk_level: low
+requires_approval: false

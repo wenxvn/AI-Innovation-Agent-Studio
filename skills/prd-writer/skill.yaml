@@ -1,0 +1,22 @@
+name: prd-writer
+display_name: PRD Writer
+version: 1.0.0
+category: product
+description: 将用户想法、赛题、调研资料转化为结构化 PRD
+enabled: true
+trigger:
+  - 用户需要产品需求文档
+  - 用户选择了项目方向
+inputs:
+  - project_goal
+  - target_users
+  - competition_rules
+  - context_pack
+outputs:
+  - prd
+  - user_stories
+required_tools:
+  - document_reader
+  - rag_search
+risk_level: low
+requires_approval: false

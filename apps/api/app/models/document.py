@@ -1,10 +1,6 @@
 from sqlalchemy import String, Text, Integer, JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from pgvector.sqlalchemy import Vector
 from app.db.base import Base, TimestampMixin, generate_uuid
-from app.core.config import get_settings
-
-settings = get_settings()
 
 
 class Document(Base, TimestampMixin):
@@ -37,7 +33,7 @@ class DocumentChunk(Base, TimestampMixin):
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     token_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    embedding = mapped_column(Vector(settings.EMBEDDING_DIMENSION), nullable=True)
+    embedding: Mapped[list] = mapped_column(JSON, nullable=True)
     embedding_provider: Mapped[str] = mapped_column(String(50), nullable=True, default="")
     embedding_model: Mapped[str] = mapped_column(String(100), nullable=True, default="")
     embedding_mode: Mapped[str] = mapped_column(String(20), nullable=True, default="")

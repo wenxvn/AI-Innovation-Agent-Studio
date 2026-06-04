@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import projects, documents, memory, skills, agents, tools, evals, outputs, runtime, rag, trace, dashboard
+from app.api.v1 import projects, documents, memory, skills, agents, tools, evals, outputs, runtime, rag, trace, dashboard, workflow, prompts
 
 router = APIRouter(prefix="/api/v1")
 
@@ -15,3 +15,5 @@ router.include_router(runtime.router)
 router.include_router(rag.router)
 router.include_router(trace.router)
 router.include_router(dashboard.router)
+router.include_router(workflow.router)
+router.include_router(prompts.router)

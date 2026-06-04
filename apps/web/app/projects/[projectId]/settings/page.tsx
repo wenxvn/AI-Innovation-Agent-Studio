@@ -4,97 +4,100 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
-import { api, type ProjectUpdate } from '@/lib/api-client'
-import { Loader2, Save, Trash2 } from 'lucide-react'
-
-const STAGES = [
-  { value: 'ideation', label: '创意构思' },
-  { value: 'research', label: '需求调研' },
-  { value: 'architecture', label: '架构设计' },
-  { value: 'development', label: '开发实现' },
-  { value: 'testing', label: '测试验证' },
-  { value: 'completed', label: '已完成' },
-]
+import { api, type Project } from '@/lib/api-client'
+import {
+  Loader2,
+  Save,
+  Settings,
+  Brain,
+  Database,
+  Server,
+  Shield,
+  Key,
+  Cpu,
+  Globe,
+  CheckCircle2,
+  AlertCircle,
+  Zap,
+  RefreshCw,
+  Info,
+} from 'lucide-react'
 
 export default function SettingsPage() {
   const params = useParams()
   const projectId = params.projectId as string
   const queryClient = useQueryClient()
 
-  const { data: projectData, isLoading } = useQuery({
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [goal, setGoal] = useState('')
+  const [techStack, setTechStack] = useState('')
+
+  const { data: projectData, isLoading: projectLoading } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => api.projects.get(projectId),
     enabled: !!projectId,
   })
 
-  const project = projectData?.data
-
-  const [form, setForm] = useState<ProjectUpdate>({
-    name: '',
-    description: '',
-    goal: '',
-    current_stage: '',
-    tech_stack: [],
+  const { data: runtimeData, isLoading: runtimeLoading } = useQuery({
+    queryKey: ['runtime-status'],
+    queryFn: () => api.runtime.status(),
   })
-  const [techInput, setTechInput] = useState('')
+
+  const { data: providersData, isLoading: providersLoading } = useQuery({
+    queryKey: ['runtime-providers'],
+    queryFn: () => api.runtime.providers(),
+  })
+
+  const project = projectData?.data
+  const runtime = runtimeData?.data
+  const providers = providersData?.data
 
   useEffect(() => {
     if (project) {
-      setForm({
-        name: project.name,
-        description: project.description,
-        goal: project.goal,
-        current_stage: project.current_stage,
-        tech_stack: project.tech_stack,
-      })
+      setName(project.name)
+      setDescription(project.description || '')
+      setGoal(project.goal || '')
+      setTechStack((project.tech_stack || []).join(', '))
     }
   }, [project])
 
   const updateMutation = useMutation({
-    mutationFn: (data: ProjectUpdate) => api.projects.update(projectId, data),
+    mutationFn: () => {
+      const techStackArray = techStack
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      return api.projects.update(projectId, {
+        name,
+        description,
+        goal,
+        tech_stack: techStackArray,
+      })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] })
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
       toast({ title: '设置已保存', variant: 'success' })
     },
-    onError: (err: Error) => {
-      toast({ title: '保存失败', description: err.message, variant: 'destructive' })
-    },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: () => api.projects.delete(projectId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-      window.location.href = '/dashboard'
-    },
-    onError: (err: Error) => {
-      toast({ title: '删除失败', description: err.message, variant: 'destructive' })
+    onError: (error: Error) => {
+      toast({ title: '保存失败', description: error.message, variant: 'destructive' })
     },
   })
 
   const handleSave = () => {
-    updateMutation.mutate(form)
-  }
-
-  const addTech = () => {
-    if (techInput.trim() && !form.tech_stack?.includes(techInput.trim())) {
-      setForm({ ...form, tech_stack: [...(form.tech_stack || []), techInput.trim()] })
-      setTechInput('')
+    if (!name.trim()) {
+      toast({ title: '项目名称不能为空', variant: 'destructive' })
+      return
     }
+    updateMutation.mutate()
   }
 
-  const removeTech = (tech: string) => {
-    setForm({ ...form, tech_stack: form.tech_stack?.filter((t) => t !== tech) || [] })
-  }
-
-  if (isLoading) {
+  if (projectLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
@@ -103,113 +106,205 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">项目设置</h1>
-        <p className="text-sm text-muted-foreground mt-1">管理项目配置和元数据</p>
+    <div className="p-6 max-w-4xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Settings</h1>
+        <p className="text-sm text-muted-foreground mt-1">项目配置和运行时状态</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>基本信息</CardTitle>
-          <CardDescription>修改项目名称、描述和目标</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>项目名称</Label>
-            <Input
-              value={form.name || ''}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>项目描述</Label>
-            <Textarea
-              value={form.description || ''}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>项目目标</Label>
-            <Textarea
-              value={form.goal || ''}
-              onChange={(e) => setForm({ ...form, goal: e.target.value })}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>项目阶段</CardTitle>
-          <CardDescription>设置当前项目所处的阶段</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {STAGES.map((stage) => (
-              <Badge
-                key={stage.value}
-                variant={form.current_stage === stage.value ? 'accent' : 'outline'}
-                className="cursor-pointer hover:bg-accent/20 transition-colors"
-                onClick={() => setForm({ ...form, current_stage: stage.value })}
+      <div className="space-y-6">
+        {/* Project Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Settings className="h-4 w-4 text-violet-500" />
+              项目设置
+            </CardTitle>
+            <CardDescription>项目的基本信息和配置</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">项目名称 *</label>
+              <Input
+                placeholder="输入项目名称"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">项目描述</label>
+              <Textarea
+                placeholder="描述项目的目标和范围"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">项目目标</label>
+              <Textarea
+                placeholder="项目的主要目标和预期成果"
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">技术栈</label>
+              <Input
+                placeholder="Python, FastAPI, Next.js (逗号分隔)"
+                value={techStack}
+                onChange={(e) => setTechStack(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">多个技术栈请用逗号分隔</p>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                variant="primary"
+                onClick={handleSave}
+                disabled={updateMutation.isPending}
               >
-                {stage.label}
-              </Badge>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+                {updateMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                保存设置
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>技术栈</CardTitle>
-          <CardDescription>添加或移除项目使用的技术</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex gap-2">
-            <Input
-              placeholder="输入技术名称"
-              value={techInput}
-              onChange={(e) => setTechInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addTech()}
-            />
-            <Button variant="outline" onClick={addTech}>添加</Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {form.tech_stack?.map((tech) => (
-              <Badge key={tech} variant="secondary" className="cursor-pointer hover:bg-error/20" onClick={() => removeTech(tech)}>
-                {tech} ×
-              </Badge>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+        {/* Runtime Status */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Server className="h-4 w-4 text-blue-500" />
+              运行时状态
+            </CardTitle>
+            <CardDescription>LLM 和 Embedding 服务的配置状态</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {runtimeLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
+              </div>
+            ) : runtime ? (
+              <div className="space-y-4">
+                {/* LLM Status */}
+                <div className="p-4 rounded-lg border border-border/30 bg-muted/10">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-5 w-5 text-violet-500" />
+                      <p className="font-medium">LLM 服务</p>
+                    </div>
+                    <Badge variant={runtime.llm.configured ? 'success' : 'warning'}>
+                      {runtime.llm.configured ? '已配置' : '未配置'}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Provider</p>
+                      <p className="font-medium">{runtime.llm.provider || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Model</p>
+                      <p className="font-medium">{runtime.llm.model || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Mode</p>
+                      <Badge variant={runtime.llm.mode === 'real' ? 'success' : 'secondary'}>
+                        {runtime.llm.mode}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
 
-      <div className="flex items-center justify-between">
-        <Button
-          variant="primary"
-          onClick={handleSave}
-          disabled={updateMutation.isPending}
-        >
-          {updateMutation.isPending ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4 mr-2" />
-          )}
-          保存设置
-        </Button>
+                {/* Embedding Status */}
+                <div className="p-4 rounded-lg border border-border/30 bg-muted/10">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Database className="h-5 w-5 text-blue-500" />
+                      <p className="font-medium">Embedding 服务</p>
+                    </div>
+                    <Badge variant={runtime.embedding.configured ? 'success' : 'warning'}>
+                      {runtime.embedding.configured ? '已配置' : '未配置'}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Provider</p>
+                      <p className="font-medium">{runtime.embedding.provider || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Model</p>
+                      <p className="font-medium">{runtime.embedding.model || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Mode</p>
+                      <Badge variant={runtime.embedding.mode === 'real' ? 'success' : 'secondary'}>
+                        {runtime.embedding.mode}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
 
-        <Button
-          variant="destructive"
-          onClick={() => {
-            if (confirm('确定删除此项目？此操作不可恢复。')) {
-              deleteMutation.mutate()
-            }
-          }}
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          删除项目
-        </Button>
+                {/* Info */}
+                <div className="p-4 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                  <div className="flex items-start gap-3">
+                    <Info className="h-5 w-5 text-violet-500 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-violet-400 mb-1">配置说明</p>
+                      <p className="text-xs text-muted-foreground">
+                        要使用真实的 LLM 服务，请在项目根目录的 <code className="px-1 py-0.5 rounded bg-muted/20 font-mono">.env</code> 文件中配置 API Key。
+                        当前为 <Badge variant="secondary" className="text-[10px] mx-1">{runtime.llm.mode}</Badge> 模式。
+                      </p>
+                      <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                        <p><code className="px-1 py-0.5 rounded bg-muted/20 font-mono">LLM_PROVIDER=openai</code></p>
+                        <p><code className="px-1 py-0.5 rounded bg-muted/20 font-mono">LLM_MODEL=gpt-4o-mini</code></p>
+                        <p><code className="px-1 py-0.5 rounded bg-muted/20 font-mono">OPENAI_API_KEY=sk-xxx</code></p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">无法获取运行时状态</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Environment Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Globe className="h-4 w-4 text-emerald-500" />
+              环境信息
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="p-3 rounded-lg bg-muted/10">
+                <p className="text-muted-foreground">项目 ID</p>
+                <p className="font-mono text-xs mt-1">{projectId}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/10">
+                <p className="text-muted-foreground">项目状态</p>
+                <Badge variant={project?.status === 'active' ? 'success' : 'secondary'}>
+                  {project?.status}
+                </Badge>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/10">
+                <p className="text-muted-foreground">当前阶段</p>
+                <p className="font-medium">{project?.current_stage || 'N/A'}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/10">
+                <p className="text-muted-foreground">创建时间</p>
+                <p className="font-medium">{project?.created_at ? new Date(project.created_at).toLocaleString('zh-CN') : 'N/A'}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

@@ -1,0 +1,20 @@
+name: competition-analyzer
+display_name: Competition Analyzer
+version: 1.0.0
+category: analysis
+description: 解析比赛通知，提取赛题要求、评分标准、提交物要求
+enabled: true
+trigger:
+  - 用户上传比赛通知
+  - 用户需要分析比赛要求
+inputs:
+  - competition_file
+  - scoring_criteria
+outputs:
+  - requirements
+  - criteria
+required_tools:
+  - file_reader
+  - pdf_parser
+risk_level: low
+requires_approval: false

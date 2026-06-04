@@ -19,6 +19,7 @@ import {
   Layers,
   Activity,
   Loader2,
+  ScrollText,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useParams } from 'next/navigation'
@@ -34,6 +35,7 @@ const navItems = [
   { label: 'Memory', icon: Brain, suffix: '/memory' },
   { label: 'Skills', icon: Wrench, suffix: '/skills' },
   { label: 'Tools', icon: Wrench, suffix: '/tools' },
+  { label: 'Prompts', icon: ScrollText, suffix: '/prompts' },
   { label: 'Evals', icon: BarChart3, suffix: '/evals' },
   { label: 'Outputs', icon: FileText, suffix: '/outputs' },
   { label: 'Settings', icon: Settings, suffix: '/settings' },
@@ -48,19 +50,29 @@ export default function ProjectLayout({
   const params = useParams()
   const projectId = params.projectId as string
 
-  const { data: projectData, isLoading } = useQuery({
+  const { data: projectData, isLoading, isError: projectError } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => api.projects.get(projectId),
     enabled: !!projectId,
+    retry: false,
   })
 
   const project = projectData?.data
+  const { data: runtimeData, isError: runtimeError } = useQuery({
+    queryKey: ['runtime-status'],
+    queryFn: () => api.runtime.status(),
+    retry: false,
+  })
+  const runtime = runtimeData?.data
+  const runtimeLabel = runtime ? `${runtime.llm.provider}/${runtime.llm.model}` : runtimeError ? '未连接' : '检测中'
+  const runtimeMode = runtime ? runtime.llm.mode : runtimeError ? 'api-offline' : '检测中'
 
   const isActive = (suffix: string) => {
     const base = `/projects/${projectId}`
     if (suffix === '') return pathname === base
     return pathname.startsWith(base + suffix)
   }
+  const showProjectInspector = !pathname.startsWith(`/projects/${projectId}/chat`)
 
   const STAGE_LABELS: Record<string, string> = {
     ideation: '创意构思',
@@ -94,11 +106,13 @@ export default function ProjectLayout({
 
           <div className="flex items-center space-x-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="hidden sm:inline">模型: GPT-4</span>
+              <span className="hidden sm:inline">
+                模型: {runtimeLabel}
+              </span>
               <span className="hidden sm:inline">•</span>
               <span className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                <span className="hidden sm:inline">就绪</span>
+                <div className={`w-2 h-2 rounded-full ${runtime?.llm.configured ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
+                <span className="hidden sm:inline">{runtimeMode}</span>
               </span>
             </div>
             <ThemeToggle />
@@ -106,8 +120,32 @@ export default function ProjectLayout({
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-53px)]">
-        <aside className="w-52 border-r border-border/50 p-4 flex flex-col shrink-0 bg-card/30">
+      <div className="md:hidden border-b border-border/50 bg-card/30 overflow-x-auto">
+        <nav className="flex min-w-max gap-1 px-3 py-2">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const active = isActive(item.suffix)
+            const href = `/projects/${projectId}${item.suffix}`
+            return (
+              <Link
+                key={item.label}
+                href={href}
+                className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs transition-colors ${
+                  active
+                    ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {item.label}
+              </Link>
+            )
+          })}
+        </nav>
+      </div>
+
+      <div className="flex h-[calc(100vh-101px)] md:h-[calc(100vh-53px)]">
+        <aside className="w-52 border-r border-border/50 p-4 hidden md:flex flex-col shrink-0 bg-card/30">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
@@ -126,6 +164,11 @@ export default function ProjectLayout({
                   style={{ width: `${project.progress}%` }}
                 />
               </div>
+            </div>
+          ) : projectError ? (
+            <div className="mb-6 rounded-md border border-warning/30 bg-warning/10 p-3">
+              <p className="text-xs font-medium text-warning">后端未连接</p>
+              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">启动 API 后会显示项目摘要。</p>
             </div>
           ) : null}
 
@@ -163,6 +206,7 @@ export default function ProjectLayout({
           {children}
         </main>
 
+        {showProjectInspector && (
         <aside className="w-72 border-l border-border/50 p-4 overflow-auto shrink-0 hidden xl:block bg-card/20">
           <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Inspector</h3>
           {project ? (
@@ -200,6 +244,7 @@ export default function ProjectLayout({
             </div>
           )}
         </aside>
+        )}
       </div>
       <Toaster />
     </div>

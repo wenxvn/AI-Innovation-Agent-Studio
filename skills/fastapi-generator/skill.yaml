@@ -1,0 +1,20 @@
+name: fastapi-generator
+display_name: FastAPI Generator
+version: 1.0.0
+category: coding
+description: 生成 FastAPI 后端代码骨架和配置文件
+enabled: true
+trigger:
+  - 用户需要后端代码
+  - 架构设计完成后
+inputs:
+  - api_design
+  - database_schema
+  - tech_stack
+outputs:
+  - backend_code
+required_tools:
+  - file_writer
+  - code_formatter
+risk_level: medium
+requires_approval: true

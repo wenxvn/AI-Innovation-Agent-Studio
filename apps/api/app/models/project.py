@@ -12,7 +12,7 @@ class Project(Base, TimestampMixin):
     goal: Mapped[str] = mapped_column(Text, nullable=True, default="")
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
     current_stage: Mapped[str] = mapped_column(String(100), nullable=False, default="ideation")
-    tech_stack: Mapped[dict] = mapped_column(JSON, nullable=True, default=list)
+    tech_stack: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
     progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     metadata_: Mapped[dict] = mapped_column("metadata", JSON, nullable=True, default=dict)
 
