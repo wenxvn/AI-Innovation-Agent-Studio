@@ -12,11 +12,12 @@ from app.db.session import engine
 settings = get_settings()
 setup_logging()
 logger = logging.getLogger(__name__)
+API_VERSION = "0.4.0"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting AI Innovation Agent Studio API v0.3.0")
+    logger.info("Starting AI Innovation Agent Studio API v%s", API_VERSION)
     init_db()
     logger.info("Database initialized")
     yield
@@ -27,7 +28,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AI Innovation Agent Studio API",
     description="智创工坊后端 API",
-    version="0.3.0",
+    version=API_VERSION,
     lifespan=lifespan,
 )
 
@@ -71,7 +72,7 @@ app.include_router(v1_router)
 
 @app.get("/")
 async def root():
-    return {"message": "AI Innovation Agent Studio API", "version": "0.3.0"}
+    return {"message": "AI Innovation Agent Studio API", "version": API_VERSION}
 
 
 @app.get("/health")
@@ -110,5 +111,5 @@ async def health():
         "database": "connected" if db_ok else "disconnected",
         "redis": "connected" if redis_ok else "disconnected",
         "storage": storage_info,
-        "version": "0.4.0",
+        "version": API_VERSION,
     }

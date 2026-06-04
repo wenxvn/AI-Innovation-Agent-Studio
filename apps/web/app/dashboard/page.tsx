@@ -59,15 +59,15 @@ const STAGE_LABELS: Record<string, string> = {
 }
 
 const MODULES = [
-  { label: 'Agent 运行台', suffix: '/chat', icon: MessageSquareText, description: '运行任务、查看计划、上下文、工具调用和 Trace' },
+  { label: '智能体运行台', suffix: '/chat', icon: MessageSquareText, description: '运行任务、查看计划、上下文、工具调用和 Trace' },
   { label: '文件与 RAG', suffix: '/files', icon: FileText, description: '上传赛题、论文、政策和项目资料' },
-  { label: 'Workflow', suffix: '/workflow', icon: GitBranch, description: '查看需求分析到答辩材料的阶段状态' },
-  { label: 'Memory', suffix: '/memory', icon: Brain, description: '管理项目记忆、语义检索和上下文沉淀' },
-  { label: 'Skills', suffix: '/skills', icon: Sparkles, description: '查看可用 Agent 技能和风险等级' },
-  { label: 'Tools', suffix: '/tools', icon: Wrench, description: '审计工具注册、调用记录和审批状态' },
-  { label: 'Prompts', suffix: '/prompts', icon: Code2, description: '管理系统提示词模板和变量' },
-  { label: 'Evals', suffix: '/evals', icon: BarChart3, description: '运行质量评估并查看评分反馈' },
-  { label: 'Outputs', suffix: '/outputs', icon: FileArchive, description: '预览 PRD、架构、代码和答辩材料' },
+  { label: '工作流', suffix: '/workflow', icon: GitBranch, description: '查看需求分析到答辩材料的阶段状态' },
+  { label: '记忆库', suffix: '/memory', icon: Brain, description: '管理项目记忆、语义检索和上下文沉淀' },
+  { label: '技能', suffix: '/skills', icon: Sparkles, description: '查看可用智能体技能和风险等级' },
+  { label: '工具', suffix: '/tools', icon: Wrench, description: '审计工具注册、调用记录和审批状态' },
+  { label: '提示词', suffix: '/prompts', icon: Code2, description: '管理系统提示词模板和变量' },
+  { label: '评估', suffix: '/evals', icon: BarChart3, description: '运行质量评估并查看评分反馈' },
+  { label: '产物', suffix: '/outputs', icon: FileArchive, description: '预览 PRD、架构、代码和答辩材料' },
 ]
 
 function formatDate(value?: string | null) {
@@ -214,8 +214,8 @@ export default function DashboardPage() {
             </Link>
             <div className="hidden h-10 border-l border-[#D7DADF] md:block" />
             <div className="hidden md:block">
-              <p className="text-xs uppercase text-[#5C6674]">Workspace</p>
-              <p className="text-sm font-medium">Agent 工程控制台</p>
+              <p className="text-xs uppercase text-[#5C6674]">工作区</p>
+              <p className="text-sm font-medium">智能体工程控制台</p>
             </div>
           </div>
 
@@ -300,7 +300,7 @@ export default function DashboardPage() {
         <section className="space-y-6">
           <div className="grid border-l border-t border-[#D7DADF] bg-white md:grid-cols-4">
             <StatCell label="项目" value={stats ? stats.project_count : total} icon={FolderOpen} />
-            <StatCell label="Agent Run" value={statsQuery.isLoading ? '-' : stats?.agent_run_count ?? 0} icon={Activity} />
+            <StatCell label="运行次数" value={statsQuery.isLoading ? '-' : stats?.agent_run_count ?? 0} icon={Activity} />
             <StatCell label="产物" value={statsQuery.isLoading ? '-' : stats?.output_count ?? 0} icon={FileArchive} />
             <StatCell label="平均评分" value={stats && stats.avg_score > 0 ? stats.avg_score : '-'} icon={BarChart3} />
           </div>
@@ -328,7 +328,7 @@ export default function DashboardPage() {
               <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                 <div>
                   <p className="font-mono text-sm text-[#002FA7]">01</p>
-                  <CardTitle className="mt-2 text-2xl font-semibold tracking-normal">项目工作台</CardTitle>
+                  <h1 className="mt-2 text-2xl font-semibold tracking-normal">项目工作台</h1>
                   <p className="mt-2 text-sm text-[#5C6674]">
                     选择一个项目进入完整链路：文件、运行、工作流、记忆、工具、评估和产物。
                   </p>
@@ -373,7 +373,7 @@ export default function DashboardPage() {
                   <div className="p-8">
                     <p className="text-sm font-medium">MVP 演示路径</p>
                     <div className="mt-5 space-y-4 text-sm text-[#5C6674]">
-                      {['创建项目', '上传赛题或输入目标', '运行 Agent', '查看 Workflow / Trace / Outputs'].map((item, index) => (
+                      {['创建项目', '上传赛题或输入目标', '运行智能体', '查看工作流 / Trace / 产物'].map((item, index) => (
                         <div key={item} className="flex items-center gap-3">
                           <span className="flex h-7 w-7 items-center justify-center border border-[#D7DADF] font-mono text-xs text-[#002FA7]">
                             {index + 1}
@@ -501,7 +501,7 @@ export default function DashboardPage() {
             <CardContent className="space-y-5 p-5">
               <div>
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-medium">最近 Agent Run</p>
+                  <p className="text-sm font-medium">最近智能体运行</p>
                   <PlayCircle className="h-4 w-4 text-[#002FA7]" />
                 </div>
                 {stats?.recent_agent_runs?.length ? (
@@ -514,7 +514,7 @@ export default function DashboardPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm leading-6 text-[#5C6674]">暂无运行记录。进入 Agent 运行台后可以创建第一条 Run。</p>
+                  <p className="text-sm leading-6 text-[#5C6674]">暂无运行记录。进入智能体运行台后可以创建第一条任务。</p>
                 )}
               </div>
 
@@ -533,7 +533,7 @@ export default function DashboardPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm leading-6 text-[#5C6674]">暂无产物。Agent 生成的 PRD、架构和代码会出现在 Outputs。</p>
+                  <p className="text-sm leading-6 text-[#5C6674]">暂无产物。智能体生成的 PRD、架构和代码会出现在产物页。</p>
                 )}
               </div>
             </CardContent>
@@ -543,7 +543,7 @@ export default function DashboardPage() {
             <CardContent className="grid grid-cols-2 gap-0 p-0">
               <div className="border-b border-r border-[#D7DADF] p-4">
                 <Database className="mb-3 h-5 w-5 text-[#002FA7]" />
-                <p className="text-xs text-[#5C6674]">Database</p>
+                <p className="text-xs text-[#5C6674]">数据库</p>
                 <p className="mt-1 text-sm font-medium">{healthQuery.data?.database || '-'}</p>
               </div>
               <div className="border-b border-[#D7DADF] p-4">
@@ -553,12 +553,12 @@ export default function DashboardPage() {
               </div>
               <div className="border-r border-[#D7DADF] p-4">
                 <FileText className="mb-3 h-5 w-5 text-[#002FA7]" />
-                <p className="text-xs text-[#5C6674]">Documents</p>
+                <p className="text-xs text-[#5C6674]">文档</p>
                 <p className="mt-1 text-sm font-medium">{stats?.document_count ?? 0}</p>
               </div>
               <div className="p-4">
                 <Brain className="mb-3 h-5 w-5 text-[#002FA7]" />
-                <p className="text-xs text-[#5C6674]">Memory</p>
+                <p className="text-xs text-[#5C6674]">记忆</p>
                 <p className="mt-1 text-sm font-medium">{stats?.memory_count ?? 0}</p>
               </div>
             </CardContent>

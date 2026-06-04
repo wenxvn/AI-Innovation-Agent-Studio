@@ -69,7 +69,7 @@ export default function SkillsPage() {
       api.skills.update(name, { is_enabled }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['skills'] })
-      toast({ title: 'Skill 已更新', variant: 'success' })
+      toast({ title: '技能已更新', variant: 'success' })
     },
   })
 
@@ -77,7 +77,7 @@ export default function SkillsPage() {
     mutationFn: () => api.skills.reload(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['skills'] })
-      toast({ title: 'Skills 已重新加载', variant: 'success' })
+      toast({ title: '技能已重新加载', variant: 'success' })
     },
   })
 
@@ -89,7 +89,7 @@ export default function SkillsPage() {
     <div className="p-6 max-w-6xl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Skills</h1>
+          <h1 className="text-2xl font-bold">技能</h1>
           <p className="text-sm text-muted-foreground mt-1">项目可用的 Agent 技能</p>
         </div>
         <Button
@@ -121,7 +121,7 @@ export default function SkillsPage() {
               <CardContent className="p-4 text-center">
                 <Cog className="h-6 w-6 mx-auto text-violet-500 mb-2" />
                 <p className="text-2xl font-bold">{skills.length}</p>
-                <p className="text-xs text-muted-foreground">总 Skills</p>
+                <p className="text-xs text-muted-foreground">技能总数</p>
               </CardContent>
             </Card>
             <Card className="hover:shadow-md transition-shadow">
@@ -152,8 +152,8 @@ export default function SkillsPage() {
             <Card>
               <CardContent className="p-12 text-center">
                 <Cog className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">暂无 Skills</h3>
-                <p className="text-muted-foreground">请检查 skills 目录是否包含 Skill 配置文件</p>
+                <h3 className="text-lg font-semibold mb-2">暂无技能</h3>
+                <p className="text-muted-foreground">请检查 skills 目录是否包含技能配置文件</p>
               </CardContent>
             </Card>
           ) : (

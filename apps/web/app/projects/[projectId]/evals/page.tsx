@@ -92,8 +92,8 @@ export default function EvalsPage() {
   return (
     <div className="p-6 max-w-6xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Evaluations</h1>
-        <p className="text-sm text-muted-foreground mt-1">Agent 运行的多维度评估结果</p>
+        <h1 className="text-2xl font-bold">评估</h1>
+        <p className="text-sm text-muted-foreground mt-1">智能体运行的多维度评估结果</p>
       </div>
 
       {isLoading && (
@@ -157,7 +157,7 @@ export default function EvalsPage() {
               <CardContent className="p-12 text-center">
                 <BarChart3 className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
                 <h3 className="text-lg font-semibold mb-2">暂无评估</h3>
-                <p className="text-muted-foreground">Agent 运行完成后会自动生成评估</p>
+                <p className="text-muted-foreground">智能体运行完成后会自动生成评估</p>
               </CardContent>
             </Card>
           ) : (

@@ -160,7 +160,7 @@ function ContextPanel({ run }: { run: AgentRun }) {
       <div>
         <p className="mb-2 flex items-center gap-2 text-sm font-semibold">
           <Brain className="h-4 w-4 text-blue-500" />
-          Memory Used
+          使用的记忆
         </p>
         {memories.length ? (
           <div className="space-y-2">
@@ -171,7 +171,7 @@ function ContextPanel({ run }: { run: AgentRun }) {
                   <div className="mb-1 flex items-center justify-between gap-2">
                     <Badge variant="outline">{getString(memory.memory_type, 'memory')}</Badge>
                     <span className="text-[11px] text-muted-foreground">
-                      confidence {getNumber(memory.confidence, 0).toFixed(2)}
+                      可信度 {getNumber(memory.confidence, 0).toFixed(2)}
                     </span>
                   </div>
                   <p className="line-clamp-3 text-xs leading-5 text-muted-foreground">
@@ -189,7 +189,7 @@ function ContextPanel({ run }: { run: AgentRun }) {
       <div>
         <p className="mb-2 flex items-center gap-2 text-sm font-semibold">
           <FileText className="h-4 w-4 text-emerald-500" />
-          Retrieved Evidence
+          检索证据
         </p>
         {evidence.length ? (
           <div className="space-y-2">
@@ -232,7 +232,7 @@ function EvalPanel({ run }: { run: AgentRun }) {
   return (
     <div className="space-y-4">
       <div className="border border-border bg-background p-4">
-        <p className="text-[11px] text-muted-foreground">Overall Score</p>
+        <p className="text-[11px] text-muted-foreground">综合评分</p>
         <div className="mt-2 flex items-end gap-2">
           <span className="text-3xl font-semibold tabular-nums">{score ? score.toFixed(1) : '-'}</span>
           <Badge variant={score >= 70 ? 'success' : 'destructive'}>
@@ -348,9 +348,9 @@ function RunInspector({
       <aside className="hidden w-[360px] shrink-0 border-l border-border bg-card/40 p-4 xl:block">
         <div className="flex h-full flex-col items-center justify-center text-center">
           <Layers className="mb-3 h-10 w-10 text-muted-foreground/30" />
-          <p className="text-sm font-medium">选择一次 Agent Run</p>
+          <p className="text-sm font-medium">选择一次智能体运行</p>
           <p className="mt-2 max-w-[240px] text-xs leading-5 text-muted-foreground">
-            运行任务或点击历史记录后，这里会展示 Context、Tool、Eval 和 Trace。
+            运行任务或点击历史记录后，这里会展示上下文、工具、评估和 Trace。
           </p>
         </div>
       </aside>
@@ -365,7 +365,7 @@ function RunInspector({
       <div className="sticky top-0 z-10 border-b border-border bg-card/95 p-4 backdrop-blur">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Agent Run Inspector</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">智能体运行详情</p>
             <h2 className="mt-1 truncate text-base font-semibold">{getString(output.title, run.agent_name)}</h2>
           </div>
           {statusBadge(run.status)}
@@ -378,19 +378,19 @@ function RunInspector({
 
       <div className="space-y-4 p-4">
         <div className="grid grid-cols-2 gap-2">
-          <RunMetric label="Latency" value={run.latency_ms ? `${run.latency_ms}ms` : '-'} />
-          <RunMetric label="Tokens" value={String(tokenUsage.total_tokens ?? '-')} />
-          <RunMetric label="Cost" value={run.cost ? `$${run.cost.toFixed(4)}` : '$0'} />
-          <RunMetric label="Created" value={formatTime(run.created_at).split(' ')[1] || '-'} />
+          <RunMetric label="耗时" value={run.latency_ms ? `${run.latency_ms}ms` : '-'} />
+          <RunMetric label="Token" value={String(tokenUsage.total_tokens ?? '-')} />
+          <RunMetric label="费用" value={run.cost ? `$${run.cost.toFixed(4)}` : '$0'} />
+          <RunMetric label="创建时间" value={formatTime(run.created_at).split(' ')[1] || '-'} />
         </div>
 
         <Tabs defaultValue="context" className="w-full">
           <TabsList className="grid h-auto w-full grid-cols-5">
-            <TabsTrigger className="px-2 text-xs" value="plan">Plan</TabsTrigger>
-            <TabsTrigger className="px-2 text-xs" value="context">Context</TabsTrigger>
-            <TabsTrigger className="px-2 text-xs" value="tools">Tools</TabsTrigger>
-            <TabsTrigger className="px-2 text-xs" value="eval">Eval</TabsTrigger>
-            <TabsTrigger className="px-2 text-xs" value="trace">Trace</TabsTrigger>
+            <TabsTrigger className="px-2 text-xs" value="plan">计划</TabsTrigger>
+            <TabsTrigger className="px-2 text-xs" value="context">上下文</TabsTrigger>
+            <TabsTrigger className="px-2 text-xs" value="tools">工具</TabsTrigger>
+            <TabsTrigger className="px-2 text-xs" value="eval">评估</TabsTrigger>
+            <TabsTrigger className="px-2 text-xs" value="trace">追踪</TabsTrigger>
           </TabsList>
           <TabsContent value="plan" className="mt-4">
             <PlanList run={run} />
@@ -410,7 +410,7 @@ function RunInspector({
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
               </div>
             ) : (
-              <TraceTimeline events={traceEvents as never} title="Run Trace" />
+              <TraceTimeline events={traceEvents as never} title="运行追踪" />
             )}
           </TabsContent>
         </Tabs>
@@ -468,7 +468,7 @@ export default function ChatPage() {
         {
           id: `assistant-${run.id}`,
           role: 'assistant',
-          content: getString(output.content, '任务已执行，结果已保存到 Outputs。'),
+          content: getString(output.content, '任务已执行，结果已保存到产物页。'),
           run,
           timestamp: new Date(),
         },
@@ -532,14 +532,14 @@ export default function ChatPage() {
             <div>
               <h1 className="flex items-center gap-2 text-lg font-semibold">
                 <Bot className="h-5 w-5 text-primary" />
-                Agent Chat
+                智能体对话
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 输入任务后，系统会选择 Skill、检索上下文、记录工具调用并生成可追踪产物。
               </p>
             </div>
             <Badge variant="outline" className="hidden sm:flex">
-              {runs.length} runs
+              {runs.length} 次运行
             </Badge>
           </div>
         </div>
@@ -551,9 +551,9 @@ export default function ChatPage() {
                 <div className="flex min-h-full flex-col justify-center">
                   <div className="mx-auto max-w-2xl text-center">
                     <MessageSquare className="mx-auto mb-4 h-12 w-12 text-muted-foreground/30" />
-                    <h2 className="text-xl font-semibold">开始一次可观察的 Agent Run</h2>
+                    <h2 className="text-xl font-semibold">开始一次可观察的智能体运行</h2>
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                      你可以从赛题解析、PRD、架构、代码骨架或答辩材料开始。运行后右侧会展示 Context、Tools、Eval 和 Trace。
+                      你可以从赛题解析、PRD、架构、代码骨架或答辩材料开始。运行后右侧会展示上下文、工具、评估和 Trace。
                     </p>
                     <div className="mt-6 grid gap-2 sm:grid-cols-2">
                       {SUGGESTIONS.map((suggestion) => (
@@ -605,7 +605,7 @@ export default function ChatPage() {
                                   <div className="mt-3 flex flex-wrap gap-2">
                                     <Button variant="ghost" size="sm" onClick={() => setSelectedRunId(run.id)}>
                                       <Layers className="mr-1 h-3.5 w-3.5" />
-                                      查看 Inspector
+                                      查看详情
                                     </Button>
                                     <Button variant="ghost" size="sm" onClick={() => handleCopy(getString(output.content, message.content))}>
                                       <Copy className="mr-1 h-3.5 w-3.5" />
@@ -628,7 +628,7 @@ export default function ChatPage() {
                     <div className="flex justify-start">
                       <div className="flex items-center gap-3 border border-border bg-card p-4">
                         <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                        <span className="text-sm text-muted-foreground">Agent 正在检索上下文、调用工具并生成结果...</span>
+                        <span className="text-sm text-muted-foreground">智能体正在检索上下文、调用工具并生成结果...</span>
                       </div>
                     </div>
                   ) : null}
@@ -664,7 +664,7 @@ export default function ChatPage() {
 
           <aside className="hidden min-h-0 overflow-y-auto bg-card/20 p-4 lg:block">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Recent Runs</h2>
+              <h2 className="text-sm font-semibold">最近运行</h2>
               {runsLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : null}
             </div>
             {runsError ? (

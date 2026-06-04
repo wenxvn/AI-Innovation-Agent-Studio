@@ -28,7 +28,7 @@ import { useEffect, useState } from 'react'
 const features = [
   {
     icon: Workflow,
-    title: 'Agent Workflow',
+    title: '智能体工作流',
     description: '多智能体协作工作流，可视化编排复杂任务，8大专业Agent协同工作',
     color: 'from-violet-500 to-purple-500',
     bgColor: 'bg-violet-500/10',
@@ -36,7 +36,7 @@ const features = [
   },
   {
     icon: Database,
-    title: 'Context Engineering',
+    title: '上下文工程',
     description: '智能上下文工程，构建最小必要上下文包，精确检索相关证据',
     color: 'from-blue-500 to-cyan-500',
     bgColor: 'bg-blue-500/10',
@@ -44,7 +44,7 @@ const features = [
   },
   {
     icon: Brain,
-    title: 'Memory System',
+    title: '记忆系统',
     description: '四层记忆系统：用户记忆、项目记忆、语义记忆、经验记忆',
     color: 'from-cyan-500 to-teal-500',
     bgColor: 'bg-cyan-500/10',
@@ -52,7 +52,7 @@ const features = [
   },
   {
     icon: Code,
-    title: 'Skill Registry',
+    title: '技能注册表',
     description: '插件化技能注册，12个内置专业技能，覆盖项目全流程',
     color: 'from-indigo-500 to-blue-500',
     bgColor: 'bg-indigo-500/10',
@@ -60,7 +60,7 @@ const features = [
   },
   {
     icon: Shield,
-    title: 'Tool Gateway',
+    title: '工具网关',
     description: '工具调用网关，安全审批机制，高风险操作人工确认',
     color: 'from-emerald-500 to-green-500',
     bgColor: 'bg-emerald-500/10',
@@ -68,7 +68,7 @@ const features = [
   },
   {
     icon: BarChart3,
-    title: 'Eval & Trace',
+    title: '评估与追踪',
     description: '多维度自动评估，全链路追踪可视化，12个评估维度',
     color: 'from-amber-500 to-orange-500',
     bgColor: 'bg-amber-500/10',
@@ -86,19 +86,19 @@ const workflowSteps = [
 ]
 
 const agents = [
-  { name: 'Requirement Analysis Agent', role: '需求分析', status: '解析赛题和评分标准' },
-  { name: 'Research Agent', role: '调研分析', status: '背景调研与竞品分析' },
-  { name: 'Product Agent', role: '产品设计', status: 'PRD生成与用户故事' },
-  { name: 'Architecture Agent', role: '架构设计', status: '系统架构与数据库' },
-  { name: 'Coding Agent', role: '代码生成', status: '前后端代码骨架' },
-  { name: 'QA Agent', role: '质量检查', status: '测试与修复建议' },
-  { name: 'Pitch Agent', role: '答辩准备', status: '答辩稿与路演材料' },
+  { name: '需求分析智能体', role: '需求分析', status: '解析赛题和评分标准' },
+  { name: '调研智能体', role: '调研分析', status: '背景调研与竞品分析' },
+  { name: '产品智能体', role: '产品设计', status: 'PRD生成与用户故事' },
+  { name: '架构智能体', role: '架构设计', status: '系统架构与数据库' },
+  { name: '代码智能体', role: '代码生成', status: '前后端代码骨架' },
+  { name: '质量智能体', role: '质量检查', status: '测试与修复建议' },
+  { name: '答辩智能体', role: '答辩准备', status: '答辩稿与路演材料' },
 ]
 
 const stats = [
-  { label: '内置 Skills', value: '12+', icon: Code },
+  { label: '内置技能', value: '12+', icon: Code },
   { label: '评估维度', value: '12', icon: BarChart3 },
-  { label: 'Agent 类型', value: '8', icon: Bot },
+  { label: '智能体类型', value: '8', icon: Bot },
   { label: '工具集成', value: '8+', icon: Shield },
 ]
 
@@ -139,7 +139,7 @@ export default function HomePage() {
               流程
             </Link>
             <Link href="#agents" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Agents
+              智能体
             </Link>
             <Link href="#architecture" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               架构
@@ -177,7 +177,7 @@ export default function HomePage() {
           <div className="flex items-center justify-center gap-4 mb-12">
             <Button size="lg" variant="primary" className="px-8" asChild>
               <Link href="/dashboard">
-                进入 Demo Workspace
+                进入演示工作台
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
@@ -204,12 +204,12 @@ export default function HomePage() {
 
           {/* Tech Stack Badges */}
           <div className="flex flex-wrap justify-center gap-3 mt-12">
-            <Badge variant="secondary" className="px-3 py-1">Agent Workflow</Badge>
-            <Badge variant="secondary" className="px-3 py-1">Context Engineering</Badge>
-            <Badge variant="secondary" className="px-3 py-1">Memory System</Badge>
-            <Badge variant="secondary" className="px-3 py-1">Skill Registry</Badge>
-            <Badge variant="secondary" className="px-3 py-1">Tool Calling</Badge>
-            <Badge variant="secondary" className="px-3 py-1">Eval & Trace</Badge>
+            <Badge variant="secondary" className="px-3 py-1">智能体工作流</Badge>
+            <Badge variant="secondary" className="px-3 py-1">上下文工程</Badge>
+            <Badge variant="secondary" className="px-3 py-1">记忆系统</Badge>
+            <Badge variant="secondary" className="px-3 py-1">技能注册表</Badge>
+            <Badge variant="secondary" className="px-3 py-1">工具调用</Badge>
+            <Badge variant="secondary" className="px-3 py-1">评估与 Trace</Badge>
           </div>
         </div>
       </section>
@@ -258,7 +258,7 @@ export default function HomePage() {
             <Badge variant="outline" className="mb-4">核心能力</Badge>
             <h2 className="text-4xl font-bold mb-4">完整的 Agent 工程化管理平台</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Prompt + Skill + Memory + RAG + Tool Calling + Agent Workflow + Eval + Trace
+              提示词 + 技能 + 记忆 + RAG + 工具调用 + 智能体工作流 + 评估 + Trace
             </p>
           </div>
 
@@ -282,7 +282,7 @@ export default function HomePage() {
       <section id="agents" className="py-20 px-4">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-16">
-            <Badge variant="outline" className="mb-4">Agent 团队</Badge>
+            <Badge variant="outline" className="mb-4">智能体团队</Badge>
             <h2 className="text-4xl font-bold mb-4">8大专业 Agent 协同工作</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               每个 Agent 专注于特定领域，通过智能协作完成复杂任务
@@ -428,7 +428,7 @@ export default function HomePage() {
             <div>
               <h4 className="font-semibold mb-3">平台</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="/dashboard" className="hover:text-foreground transition-colors">Dashboard</Link></li>
+                <li><Link href="/dashboard" className="hover:text-foreground transition-colors">项目工作台</Link></li>
                 <li><Link href="#features" className="hover:text-foreground transition-colors">功能特性</Link></li>
                 <li><Link href="#workflow" className="hover:text-foreground transition-colors">核心流程</Link></li>
               </ul>
@@ -437,7 +437,7 @@ export default function HomePage() {
               <h4 className="font-semibold mb-3">技术</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link href="#architecture" className="hover:text-foreground transition-colors">技术架构</Link></li>
-                <li><Link href="#agents" className="hover:text-foreground transition-colors">Agent 团队</Link></li>
+                <li><Link href="#agents" className="hover:text-foreground transition-colors">智能体团队</Link></li>
                 <li><a href="http://localhost:8000/docs" target="_blank" className="hover:text-foreground transition-colors">API 文档</a></li>
               </ul>
             </div>
@@ -452,12 +452,12 @@ export default function HomePage() {
           </div>
           <div className="border-t border-border/50 pt-8 flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              © 2024 AI Innovation Agent Studio. All rights reserved.
+              © 2024 智创工坊。保留所有权利。
             </p>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <span>v0.4.0</span>
               <span>•</span>
-              <span>Made with AI</span>
+              <span>AI 辅助构建</span>
             </div>
           </div>
         </div>

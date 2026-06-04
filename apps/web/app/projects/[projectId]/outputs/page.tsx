@@ -111,8 +111,8 @@ export default function OutputsPage() {
   return (
     <div className="p-6 max-w-6xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Outputs</h1>
-        <p className="text-sm text-muted-foreground mt-1">Agent 生成的产物文档</p>
+        <h1 className="text-2xl font-bold">产物</h1>
+        <p className="text-sm text-muted-foreground mt-1">智能体生成的产物文档</p>
       </div>
 
       {isLoading && (
@@ -215,7 +215,7 @@ export default function OutputsPage() {
                                 {formatTimeAgo(output.created_at)}
                               </span>
                               <span>v{output.version}</span>
-                              {output.created_by_agent && <span>by {output.created_by_agent}</span>}
+                              {output.created_by_agent && <span>来源 {output.created_by_agent}</span>}
                             </div>
                           </div>
                         </div>

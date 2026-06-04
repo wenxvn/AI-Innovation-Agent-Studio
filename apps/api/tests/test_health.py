@@ -1,10 +1,13 @@
+from app.main import API_VERSION
+
+
 def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
     assert "status" in data
     assert "version" in data
-    assert data["version"] == "0.3.0"
+    assert data["version"] == API_VERSION
 
 
 def test_root(client):

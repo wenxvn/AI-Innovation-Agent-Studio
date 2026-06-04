@@ -27,18 +27,18 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
 
 const navItems = [
-  { label: 'Overview', icon: FolderOpen, suffix: '' },
-  { label: 'Chat', icon: MessageSquare, suffix: '/chat' },
-  { label: 'Workflow', icon: GitBranch, suffix: '/workflow' },
-  { label: 'Files', icon: FileText, suffix: '/files' },
-  { label: 'Context', icon: Database, suffix: '/context' },
-  { label: 'Memory', icon: Brain, suffix: '/memory' },
-  { label: 'Skills', icon: Wrench, suffix: '/skills' },
-  { label: 'Tools', icon: Wrench, suffix: '/tools' },
-  { label: 'Prompts', icon: ScrollText, suffix: '/prompts' },
-  { label: 'Evals', icon: BarChart3, suffix: '/evals' },
-  { label: 'Outputs', icon: FileText, suffix: '/outputs' },
-  { label: 'Settings', icon: Settings, suffix: '/settings' },
+  { label: '概览', icon: FolderOpen, suffix: '' },
+  { label: '对话', icon: MessageSquare, suffix: '/chat' },
+  { label: '工作流', icon: GitBranch, suffix: '/workflow' },
+  { label: '文件', icon: FileText, suffix: '/files' },
+  { label: '上下文', icon: Database, suffix: '/context' },
+  { label: '记忆', icon: Brain, suffix: '/memory' },
+  { label: '技能', icon: Wrench, suffix: '/skills' },
+  { label: '工具', icon: Wrench, suffix: '/tools' },
+  { label: '提示词', icon: ScrollText, suffix: '/prompts' },
+  { label: '评估', icon: BarChart3, suffix: '/evals' },
+  { label: '产物', icon: FileText, suffix: '/outputs' },
+  { label: '设置', icon: Settings, suffix: '/settings' },
 ]
 
 export default function ProjectLayout({
@@ -208,7 +208,7 @@ export default function ProjectLayout({
 
         {showProjectInspector && (
         <aside className="w-72 border-l border-border/50 p-4 overflow-auto shrink-0 hidden xl:block bg-card/20">
-          <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">Inspector</h3>
+          <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wider">项目详情</h3>
           {project ? (
             <div className="space-y-4">
               <div className="p-3 rounded-lg border border-border/50 bg-card/50">

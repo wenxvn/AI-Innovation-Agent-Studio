@@ -65,8 +65,8 @@ export default function PromptsPage() {
   return (
     <div className="p-6 max-w-6xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Prompt 管理</h1>
-        <p className="text-sm text-muted-foreground mt-1">系统内置的 Prompt 模板，用于 Agent 运行、评估等场景</p>
+        <h1 className="text-2xl font-bold">提示词管理</h1>
+        <p className="text-sm text-muted-foreground mt-1">系统内置的提示词模板，用于智能体运行、评估等场景</p>
       </div>
 
       {promptsLoading && (
@@ -83,7 +83,7 @@ export default function PromptsPage() {
               <CardContent className="p-4 text-center">
                 <FileText className="h-6 w-6 mx-auto text-violet-500 mb-2" />
                 <p className="text-2xl font-bold">{stats?.total || prompts.length}</p>
-                <p className="text-xs text-muted-foreground">Prompt 模板</p>
+                <p className="text-xs text-muted-foreground">提示词模板</p>
               </CardContent>
             </Card>
             <Card className="hover:shadow-md transition-shadow">
@@ -114,7 +114,7 @@ export default function PromptsPage() {
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Layers className="h-4 w-4 text-violet-500" />
-                Prompt 分类
+                提示词分类
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -138,8 +138,8 @@ export default function PromptsPage() {
             <Card>
               <CardContent className="p-12 text-center">
                 <FileText className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">暂无 Prompt 模板</h3>
-                <p className="text-muted-foreground">系统会在后端启动时自动加载内置的 Prompt 模板</p>
+                <h3 className="text-lg font-semibold mb-2">暂无提示词模板</h3>
+                <p className="text-muted-foreground">系统会在后端启动时自动加载内置的提示词模板</p>
               </CardContent>
             </Card>
           ) : (
@@ -215,7 +215,7 @@ export default function PromptsPage() {
                               {isExpanded && (
                                 <div className="mt-4 border-t border-border/30 pt-4">
                                   <div className="flex items-center justify-between mb-2">
-                                    <p className="text-sm font-medium">Prompt 内容</p>
+                                    <p className="text-sm font-medium">提示词内容</p>
                                     <div className="flex items-center gap-2">
                                       <Badge variant="outline" className="text-xs">
                                         {prompt.content.length} 字符

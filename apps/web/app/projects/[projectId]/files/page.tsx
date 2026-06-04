@@ -169,7 +169,7 @@ export default function FilesPage() {
                           {doc.chunk_count > 0 && (
                             <span className="flex items-center gap-1">
                               <Database className="h-3 w-3" />
-                              {doc.chunk_count} chunks
+                              {doc.chunk_count} 个分块
                             </span>
                           )}
                           <span>{new Date(doc.created_at).toLocaleString('zh-CN')}</span>
@@ -184,7 +184,7 @@ export default function FilesPage() {
                       </Badge>
                       {doc.embedding_status && (
                         <Badge variant="secondary" className="text-xs">
-                          embedding: {doc.embedding_status}
+                          向量状态: {doc.embedding_status}
                         </Badge>
                       )}
                       <Button
@@ -209,7 +209,7 @@ export default function FilesPage() {
                         size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-error"
                         onClick={() => {
-                          if (confirm('确定删除此文件及相关 chunks？')) {
+                          if (confirm('确定删除此文件及相关分块？')) {
                             deleteMutation.mutate(doc.id)
                           }
                         }}
@@ -227,13 +227,13 @@ export default function FilesPage() {
 
                   {isExpanded && (
                     <div className="mt-4 border-t border-border/50 pt-4">
-                      <h4 className="text-sm font-semibold mb-2">文档 Chunks ({doc.chunk_count})</h4>
+                      <h4 className="text-sm font-semibold mb-2">文档分块 ({doc.chunk_count})</h4>
                       {chunks.length > 0 ? (
                         <div className="space-y-2 max-h-64 overflow-auto">
                           {chunks.map((chunk) => (
                             <div key={chunk.id} className="p-3 rounded-lg bg-muted/10 border border-border/30">
                               <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs text-muted-foreground">Chunk #{chunk.chunk_index}</span>
+                                <span className="text-xs text-muted-foreground">分块 #{chunk.chunk_index}</span>
                                 <span className="text-xs text-muted-foreground">{chunk.token_count} tokens</span>
                               </div>
                               <p className="text-sm line-clamp-3">{chunk.content}</p>
@@ -241,7 +241,7 @@ export default function FilesPage() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-sm text-muted-foreground">暂无 chunks 数据</p>
+                        <p className="text-sm text-muted-foreground">暂无分块数据</p>
                       )}
                     </div>
                   )}

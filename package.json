@@ -6,7 +6,12 @@
     "dev": "pnpm --dir apps/web dev",
     "build": "pnpm --dir apps/web build",
     "start": "pnpm --dir apps/web start",
-    "lint": "pnpm --dir apps/web lint"
+    "lint": "pnpm --dir apps/web lint",
+    "test": "pnpm run test:api && pnpm run test:web",
+    "test:api": "python -B -m pytest apps/api/tests -q",
+    "test:web": "pnpm --dir apps/web test",
+    "test:e2e": "pnpm --dir apps/web exec playwright test",
+    "verify": "pnpm run test && pnpm --dir apps/web build && pnpm run test:e2e"
   },
   "engines": {
     "node": ">=18.0.0",

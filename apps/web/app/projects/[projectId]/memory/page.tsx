@@ -40,7 +40,7 @@ export default function MemoryPage() {
       queryClient.invalidateQueries({ queryKey: ['memories', projectId] })
       setDialogOpen(false)
       setForm({ memory_type: 'project', content: '' })
-      toast({ title: 'Memory 已创建', variant: 'success' })
+      toast({ title: '记忆已创建', variant: 'success' })
     },
     onError: (err: Error) => toast({ title: '创建失败', description: err.message, variant: 'destructive' }),
   })
@@ -49,7 +49,7 @@ export default function MemoryPage() {
     mutationFn: (id: string) => api.memory.delete(projectId, id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['memories', projectId] })
-      toast({ title: 'Memory 已删除', variant: 'success' })
+      toast({ title: '记忆已删除', variant: 'success' })
     },
   })
 
@@ -65,16 +65,16 @@ export default function MemoryPage() {
     <div className="p-6 max-w-5xl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Memory</h1>
+          <h1 className="text-2xl font-bold">记忆</h1>
           <p className="text-sm text-muted-foreground mt-1">管理项目的记忆和上下文信息</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="primary"><Plus className="h-4 w-4 mr-2" />新增 Memory</Button>
+            <Button variant="primary"><Plus className="h-4 w-4 mr-2" />新增记忆</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>新增 Memory</DialogTitle>
+              <DialogTitle>新增记忆</DialogTitle>
               <DialogDescription>添加一条记忆信息到项目</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -124,8 +124,8 @@ export default function MemoryPage() {
         <Card>
           <CardContent className="p-12 text-center">
             <Brain className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">暂无 Memory</h3>
-            <p className="text-muted-foreground">Agent 运行时会自动积累记忆</p>
+            <h3 className="text-lg font-semibold mb-2">暂无记忆</h3>
+            <p className="text-muted-foreground">智能体运行时会自动积累记忆</p>
           </CardContent>
         </Card>
       )}

@@ -69,11 +69,11 @@ export function WorkflowInspector({ projectId, nodeId, nodeLabel, run }: Workflo
             </Badge>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Agent</span>
+            <span className="text-xs text-muted-foreground">智能体</span>
             <span className="text-xs">{run.agent_name}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Skill</span>
+            <span className="text-xs text-muted-foreground">技能</span>
             <Badge variant="secondary" className="text-xs">{run.selected_skill}</Badge>
           </div>
           <div className="flex items-center justify-between">
@@ -81,7 +81,7 @@ export function WorkflowInspector({ projectId, nodeId, nodeLabel, run }: Workflo
             <span className="text-xs">{run.latency_ms}ms</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Tokens</span>
+            <span className="text-xs text-muted-foreground">Token</span>
             <span className="text-xs">{run.token_usage?.total_tokens || 0}</span>
           </div>
         </CardContent>
@@ -128,13 +128,13 @@ export function WorkflowInspector({ projectId, nodeId, nodeLabel, run }: Workflo
           <CardHeader className="p-3 pb-2">
             <CardTitle className="text-xs flex items-center gap-1">
               <Database className="h-3 w-3" />
-              Context Pack
+              上下文包
             </CardTitle>
           </CardHeader>
           <CardContent className="p-3 pt-0">
             <div className="text-xs text-muted-foreground space-y-1">
-              <p>Memory: {(run.context_pack as { relevant_memory?: unknown[] }).relevant_memory?.length || 0} 条</p>
-              <p>Evidence: {(run.context_pack as { retrieved_evidence?: unknown[] }).retrieved_evidence?.length || 0} 条</p>
+              <p>记忆: {(run.context_pack as { relevant_memory?: unknown[] }).relevant_memory?.length || 0} 条</p>
+              <p>证据: {(run.context_pack as { retrieved_evidence?: unknown[] }).retrieved_evidence?.length || 0} 条</p>
             </div>
           </CardContent>
         </Card>
@@ -145,7 +145,7 @@ export function WorkflowInspector({ projectId, nodeId, nodeLabel, run }: Workflo
           <CardHeader className="p-3 pb-2">
             <CardTitle className="text-xs flex items-center gap-1">
               <Wrench className="h-3 w-3" />
-              Tool Calls ({toolCalls.length})
+              工具调用 ({toolCalls.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-3 pt-0">
@@ -171,7 +171,7 @@ export function WorkflowInspector({ projectId, nodeId, nodeLabel, run }: Workflo
           <CardHeader className="p-3 pb-2">
             <CardTitle className="text-xs flex items-center gap-1">
               <Activity className="h-3 w-3" />
-              Trace Timeline ({traceEvents.length})
+              追踪时间线 ({traceEvents.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-3 pt-0">

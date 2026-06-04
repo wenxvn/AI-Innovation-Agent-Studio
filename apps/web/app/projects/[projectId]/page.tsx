@@ -160,42 +160,42 @@ export default function ProjectOverviewPage() {
           <CardContent className="p-4 text-center">
             <Activity className="h-6 w-6 mx-auto text-violet-500 mb-2" />
             <p className="text-2xl font-bold">{runs.length}</p>
-            <p className="text-xs text-muted-foreground">Agent Runs</p>
+            <p className="text-xs text-muted-foreground">智能体运行</p>
           </CardContent>
         </Card>
         <Card className="hover:shadow-md transition-shadow">
           <CardContent className="p-4 text-center">
             <FileText className="h-6 w-6 mx-auto text-blue-500 mb-2" />
             <p className="text-2xl font-bold">{outputs.length}</p>
-            <p className="text-xs text-muted-foreground">Outputs</p>
+            <p className="text-xs text-muted-foreground">产物</p>
           </CardContent>
         </Card>
         <Card className="hover:shadow-md transition-shadow">
           <CardContent className="p-4 text-center">
             <BarChart3 className="h-6 w-6 mx-auto text-emerald-500 mb-2" />
             <p className="text-2xl font-bold">{avgScore}</p>
-            <p className="text-xs text-muted-foreground">Avg Score</p>
+            <p className="text-xs text-muted-foreground">平均评分</p>
           </CardContent>
         </Card>
         <Card className="hover:shadow-md transition-shadow">
           <CardContent className="p-4 text-center">
             <Brain className="h-6 w-6 mx-auto text-cyan-500 mb-2" />
             <p className="text-2xl font-bold">{memories.length}</p>
-            <p className="text-xs text-muted-foreground">Memories</p>
+            <p className="text-xs text-muted-foreground">记忆</p>
           </CardContent>
         </Card>
         <Card className="hover:shadow-md transition-shadow">
           <CardContent className="p-4 text-center">
             <Database className="h-6 w-6 mx-auto text-amber-500 mb-2" />
             <p className="text-2xl font-bold">{docs.length}</p>
-            <p className="text-xs text-muted-foreground">Documents</p>
+            <p className="text-xs text-muted-foreground">文档</p>
           </CardContent>
         </Card>
         <Card className="hover:shadow-md transition-shadow">
           <CardContent className="p-4 text-center">
             <TrendingUp className="h-6 w-6 mx-auto text-green-500 mb-2" />
             <p className="text-2xl font-bold">{successRate}%</p>
-            <p className="text-xs text-muted-foreground">Success Rate</p>
+            <p className="text-xs text-muted-foreground">成功率</p>
           </CardContent>
         </Card>
       </div>

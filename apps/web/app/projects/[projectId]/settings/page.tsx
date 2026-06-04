@@ -108,7 +108,7 @@ export default function SettingsPage() {
   return (
     <div className="p-6 max-w-4xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Settings</h1>
+        <h1 className="text-2xl font-bold">设置</h1>
         <p className="text-sm text-muted-foreground mt-1">项目配置和运行时状态</p>
       </div>
 
@@ -204,15 +204,15 @@ export default function SettingsPage() {
                   </div>
                   <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
-                      <p className="text-muted-foreground">Provider</p>
+                      <p className="text-muted-foreground">服务商</p>
                       <p className="font-medium">{runtime.llm.provider || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Model</p>
+                      <p className="text-muted-foreground">模型</p>
                       <p className="font-medium">{runtime.llm.model || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Mode</p>
+                      <p className="text-muted-foreground">模式</p>
                       <Badge variant={runtime.llm.mode === 'real' ? 'success' : 'secondary'}>
                         {runtime.llm.mode}
                       </Badge>
@@ -233,15 +233,15 @@ export default function SettingsPage() {
                   </div>
                   <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
-                      <p className="text-muted-foreground">Provider</p>
+                      <p className="text-muted-foreground">服务商</p>
                       <p className="font-medium">{runtime.embedding.provider || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Model</p>
+                      <p className="text-muted-foreground">模型</p>
                       <p className="font-medium">{runtime.embedding.model || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Mode</p>
+                      <p className="text-muted-foreground">模式</p>
                       <Badge variant={runtime.embedding.mode === 'real' ? 'success' : 'secondary'}>
                         {runtime.embedding.mode}
                       </Badge>

@@ -75,7 +75,7 @@ export default function ToolsPage() {
   return (
     <div className="p-6 max-w-5xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Tools</h1>
+        <h1 className="text-2xl font-bold">工具</h1>
         <p className="text-sm text-muted-foreground mt-1">管理 Agent 可用工具和审批记录</p>
       </div>
 
@@ -137,7 +137,7 @@ export default function ToolsPage() {
               <CardContent className="p-12 text-center">
                 <Wrench className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
                 <h3 className="text-lg font-semibold mb-2">暂无调用记录</h3>
-                <p className="text-muted-foreground">Agent 运行时的工具调用会记录在这里</p>
+                <p className="text-muted-foreground">智能体运行时的工具调用会记录在这里</p>
               </CardContent>
             </Card>
           ) : (

@@ -34,7 +34,7 @@ const EVENT_STATUS_ICONS: Record<string, React.ElementType> = {
   warning: AlertCircle,
 }
 
-export function TraceTimeline({ events, title = 'Trace Timeline' }: TraceTimelineProps) {
+export function TraceTimeline({ events, title = '追踪时间线' }: TraceTimelineProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [filter, setFilter] = useState<string>('all')
 
@@ -118,7 +118,7 @@ export function TraceTimeline({ events, title = 'Trace Timeline' }: TraceTimelin
                     <div className="mt-2 pt-2 border-t border-border/30 space-y-1">
                       {event.metadata_ && Object.keys(event.metadata_).length > 0 && (
                         <div>
-                          <p className="text-[10px] text-muted-foreground mb-1">Metadata:</p>
+                          <p className="text-[10px] text-muted-foreground mb-1">元数据:</p>
                           <pre className="text-[10px] p-2 rounded bg-muted/30 overflow-auto max-h-32">
                             {JSON.stringify(event.metadata_, null, 2)}
                           </pre>
@@ -126,7 +126,7 @@ export function TraceTimeline({ events, title = 'Trace Timeline' }: TraceTimelin
                       )}
                       {event.output_data && Object.keys(event.output_data).length > 0 && (
                         <div>
-                          <p className="text-[10px] text-muted-foreground mb-1">Output:</p>
+                          <p className="text-[10px] text-muted-foreground mb-1">输出:</p>
                           <pre className="text-[10px] p-2 rounded bg-muted/30 overflow-auto max-h-32">
                             {JSON.stringify(event.output_data, null, 2)}
                           </pre>
@@ -134,7 +134,7 @@ export function TraceTimeline({ events, title = 'Trace Timeline' }: TraceTimelin
                       )}
                       {event.error_data && Object.keys(event.error_data).length > 0 && (
                         <div>
-                          <p className="text-[10px] text-error mb-1">Error:</p>
+                          <p className="text-[10px] text-error mb-1">错误:</p>
                           <pre className="text-[10px] p-2 rounded bg-error/10 overflow-auto max-h-32">
                             {JSON.stringify(event.error_data, null, 2)}
                           </pre>

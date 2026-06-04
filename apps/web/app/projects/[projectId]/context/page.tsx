@@ -59,7 +59,7 @@ export default function ContextPage() {
   return (
     <div className="p-6 max-w-6xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Context Pack</h1>
+        <h1 className="text-2xl font-bold">上下文包</h1>
         <p className="text-sm text-muted-foreground mt-1">项目上下文信息总览 - Agent 运行时的知识基础</p>
       </div>
 
@@ -79,7 +79,7 @@ export default function ContextPage() {
                   <Brain className="h-6 w-6 text-violet-500" />
                 </div>
                 <p className="text-3xl font-bold">{memories.length}</p>
-                <p className="text-sm text-muted-foreground">Memory 条目</p>
+                <p className="text-sm text-muted-foreground">记忆条目</p>
               </CardContent>
             </Card>
             <Card className="hover:shadow-md transition-shadow">
@@ -118,16 +118,16 @@ export default function ContextPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Database className="h-5 w-5 text-violet-500" />
-                Context Pack 结构
+                上下文包结构
               </CardTitle>
-              <CardDescription>Agent 运行时构建的上下文包结构</CardDescription>
+              <CardDescription>智能体运行时构建的上下文包结构</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
                   { key: 'task', label: '任务描述', icon: FileText, desc: '用户的输入和任务目标' },
                   { key: 'relevant_memory', label: '相关记忆', icon: Brain, desc: `${memories.length} 条记忆可供检索` },
-                  { key: 'retrieved_evidence', label: '检索证据', icon: Search, desc: `${totalChunks} 个 chunks 可检索` },
+                  { key: 'retrieved_evidence', label: '检索证据', icon: Search, desc: `${totalChunks} 个分块可检索` },
                   { key: 'constraints', label: '约束条件', icon: Shield, desc: '任务限制和要求' },
                   { key: 'risks', label: '风险项', icon: AlertTriangle, desc: '识别的风险和注意事项' },
                   { key: 'decisions', label: '决策记录', icon: CheckCircle2, desc: '已做出的决策' },
@@ -153,11 +153,11 @@ export default function ContextPage() {
             <TabsList>
               <TabsTrigger value="memory" className="flex items-center gap-2">
                 <Brain className="h-4 w-4" />
-                Memory ({memories.length})
+                记忆 ({memories.length})
               </TabsTrigger>
               <TabsTrigger value="documents" className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                Documents ({documents.length})
+                文档 ({documents.length})
               </TabsTrigger>
             </TabsList>
 
@@ -235,7 +235,7 @@ export default function ContextPage() {
                                 <span>•</span>
                                 <span className="flex items-center gap-1">
                                   <Database className="h-3 w-3" />
-                                  {doc.chunk_count} chunks
+                                  {doc.chunk_count} 个分块
                                 </span>
                                 <span>•</span>
                                 <span>{new Date(doc.created_at).toLocaleDateString('zh-CN')}</span>

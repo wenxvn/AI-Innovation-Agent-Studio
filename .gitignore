@@ -8,6 +8,7 @@ node_modules/
 
 # Build outputs
 .next/
+**/.next/
 out/
 build/
 dist/
@@ -63,6 +64,7 @@ wheels/
 
 # Virtual environments
 .venv/
+**/.venv/
 venv/
 ENV/
 env/
@@ -71,6 +73,9 @@ env/
 .coverage
 htmlcov/
 .pytest_cache/
+playwright-report/
+test-results/
+blob-report/
 .tox/
 .nox/
 

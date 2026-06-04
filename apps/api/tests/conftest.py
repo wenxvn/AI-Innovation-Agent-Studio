@@ -3,8 +3,9 @@ import os
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
-TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "sqlite:///./test.db")
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "sqlite://")
 os.environ.setdefault("DATABASE_URL", TEST_DATABASE_URL)
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
@@ -18,13 +19,28 @@ settings = get_settings()
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", settings.DATABASE_URL)
 
 try:
-    connect_args = {"check_same_thread": False} if TEST_DATABASE_URL.startswith("sqlite") else {"connect_timeout": 2}
-    engine = create_engine(TEST_DATABASE_URL, pool_pre_ping=True, connect_args=connect_args)
+    if TEST_DATABASE_URL.startswith("sqlite"):
+        engine = create_engine(
+            TEST_DATABASE_URL,
+            pool_pre_ping=True,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+    else:
+        engine = create_engine(
+            TEST_DATABASE_URL,
+            pool_pre_ping=True,
+            connect_args={"connect_timeout": 2},
+        )
     TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     engine.connect().close()
     USE_REAL_DB = True
 except Exception:
-    engine = create_engine("sqlite:///./test.db", connect_args={"check_same_thread": False})
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     USE_REAL_DB = False
 
@@ -42,6 +58,7 @@ app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture(scope="function")
 def db():
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     session = TestSessionLocal()
     try:

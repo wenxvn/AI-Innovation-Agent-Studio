@@ -1,8 +1,14 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
     APP_ENV: str = "development"
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
@@ -10,7 +16,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/agent_studio"
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    STORAGE_BACKEND: str = "local"
     S3_ENDPOINT: str = "http://localhost:9000"
+    S3_ENDPOINT_URL: str = "http://localhost:9000"
     S3_ACCESS_KEY: str = "minioadmin"
     S3_SECRET_KEY: str = "minioadmin"
     S3_BUCKET: str = "agent-studio"
@@ -29,13 +37,14 @@ class Settings(BaseSettings):
     LLM_BASE_URL: str = ""
     LLM_TIMEOUT_SECONDS: int = 60
     LLM_MAX_RETRIES: int = 2
+    AGENT_RUN_MODE: str = "sync"
 
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_SIZE_MB: int = 50
+    ALLOWED_UPLOAD_EXTENSIONS: str = ".txt,.md,.pdf"
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    SKILL_REGISTRY_PATH: str = "skills"
+    TOOL_REGISTRY_PATH: str = "apps/api/app/tools/registry.yaml"
 
 
 @lru_cache()

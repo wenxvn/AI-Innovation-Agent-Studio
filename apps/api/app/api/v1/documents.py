@@ -14,7 +14,11 @@ router = APIRouter(prefix="/projects/{project_id}/documents", tags=["documents"]
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf"}
+ALLOWED_EXTENSIONS = {
+    ext.strip().lower()
+    for ext in settings.ALLOWED_UPLOAD_EXTENSIONS.split(",")
+    if ext.strip()
+}
 MAX_FILE_SIZE_BYTES = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
 
