@@ -1,5 +1,59 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+import json
+import re
 from functools import lru_cache
+from typing import Any
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+DEFAULT_CORS_ORIGINS = ",".join(
+    [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+        "http://localhost:3002",
+        "http://127.0.0.1:3002",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+)
+
+
+def parse_cors_origins(value: Any) -> list[str]:
+    if value is None:
+        return []
+
+    if isinstance(value, str):
+        raw_value = value.strip()
+        if not raw_value:
+            return []
+
+        if raw_value.startswith("["):
+            try:
+                parsed = json.loads(raw_value)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, list):
+                values = parsed
+            else:
+                values = re.split(r"[\s,]+", raw_value)
+        else:
+            values = re.split(r"[\s,]+", raw_value)
+    elif isinstance(value, (list, tuple, set)):
+        values = list(value)
+    else:
+        values = [value]
+
+    origins: list[str] = []
+    seen: set[str] = set()
+    for item in values:
+        origin = str(item).strip().strip('"').strip("'")
+        if not origin or origin in seen:
+            continue
+        origins.append(origin)
+        seen.add(origin)
+    return origins
 
 
 class Settings(BaseSettings):
@@ -12,6 +66,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
+    CORS_ORIGINS: str = DEFAULT_CORS_ORIGINS
 
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/agent_studio"
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -45,6 +100,10 @@ class Settings(BaseSettings):
 
     SKILL_REGISTRY_PATH: str = "skills"
     TOOL_REGISTRY_PATH: str = "apps/api/app/tools/registry.yaml"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return parse_cors_origins(self.CORS_ORIGINS)
 
 
 @lru_cache()

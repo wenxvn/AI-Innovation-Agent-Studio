@@ -5,14 +5,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import get_settings
 from app.core.logging import setup_logging
+from app.core.version import API_VERSION
 from app.api.v1.router import router as v1_router
 from app.db.init_db import init_db
-from app.db.session import engine
+from app.db.session import SessionLocal, engine
+from app.services.prompts import sync_default_prompt_templates
+from app.services.runtime_status import build_runtime_diagnostics
 
 settings = get_settings()
 setup_logging()
 logger = logging.getLogger(__name__)
-API_VERSION = "0.4.0"
 
 
 @asynccontextmanager
@@ -20,6 +22,14 @@ async def lifespan(app: FastAPI):
     logger.info("Starting AI Innovation Agent Studio API v%s", API_VERSION)
     init_db()
     logger.info("Database initialized")
+    db = SessionLocal()
+    try:
+        sync_default_prompt_templates(db)
+        logger.info("Prompt templates synchronized")
+    except Exception as e:
+        logger.warning("Prompt template synchronization failed: %s", str(e))
+    finally:
+        db.close()
     yield
     engine.dispose()
     logger.info("Shutting down AI Innovation Agent Studio API")
@@ -34,7 +44,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -77,39 +87,8 @@ async def root():
 
 @app.get("/health")
 async def health():
-    db_ok = False
-    try:
-        from sqlalchemy import text
-        from app.db.session import SessionLocal
-        db = SessionLocal()
-        db.execute(text("SELECT 1"))
-        db_ok = True
-        db.close()
-    except Exception:
-        pass
-
-    redis_ok = False
-    try:
-        import redis
-        settings = get_settings()
-        r = redis.from_url(settings.REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
-        r.ping()
-        redis_ok = True
-        r.close()
-    except Exception:
-        pass
-
-    storage_info = {}
-    try:
-        from app.services.storage import get_storage_service
-        storage_info = get_storage_service().get_storage_info()
-    except Exception:
-        storage_info = {"backend": "local", "available": False}
-
+    diagnostics = build_runtime_diagnostics(API_VERSION)
     return {
-        "status": "ok" if db_ok else "degraded",
-        "database": "connected" if db_ok else "disconnected",
-        "redis": "connected" if redis_ok else "disconnected",
-        "storage": storage_info,
+        **diagnostics,
         "version": API_VERSION,
     }

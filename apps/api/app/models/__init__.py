@@ -7,6 +7,7 @@ from app.models.tool_call import ToolCall
 from app.models.evaluation import Evaluation
 from app.models.output import Output
 from app.models.trace_event import TraceEvent
+from app.models.prompt_template import PromptTemplate
 
 __all__ = [
     "Project",
@@ -19,4 +20,5 @@ __all__ = [
     "Evaluation",
     "Output",
     "TraceEvent",
+    "PromptTemplate",
 ]

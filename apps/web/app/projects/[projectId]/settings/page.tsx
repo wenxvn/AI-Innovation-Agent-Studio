@@ -1,15 +1,17 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { ComponentType } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
+import { RuntimeDiagnosticsCard } from '@/components/runtime-diagnostics-card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
-import { api, type Project } from '@/lib/api-client'
+import { api, type ProviderRuntimeStatus } from '@/lib/api-client'
 import {
   Loader2,
   Save,
@@ -17,16 +19,108 @@ import {
   Brain,
   Database,
   Server,
-  Shield,
   Key,
-  Cpu,
   Globe,
   CheckCircle2,
   AlertCircle,
-  Zap,
   RefreshCw,
   Info,
 } from 'lucide-react'
+
+function readinessLabel(status: ProviderRuntimeStatus) {
+  if (status.configured && status.mode === 'real') return '真实模式'
+  if (status.missing_env_vars.length > 0) return '缺失配置'
+  return 'Mock fallback'
+}
+
+function readinessVariant(status: ProviderRuntimeStatus): 'success' | 'destructive' | 'warning' {
+  if (status.configured && status.mode === 'real') return 'success'
+  if (status.missing_env_vars.length > 0) return 'destructive'
+  return 'warning'
+}
+
+function baseUrlLabel(status: ProviderRuntimeStatus) {
+  if (!status.supports_custom_base_url) return '不适用'
+  return status.base_url_custom ? '已自定义' : '默认'
+}
+
+function ProviderReadinessPanel({
+  title,
+  status,
+  icon: Icon,
+  iconClassName,
+}: {
+  title: string
+  status: ProviderRuntimeStatus
+  icon: ComponentType<{ className?: string }>
+  iconClassName: string
+}) {
+  const missingEnv = status.missing_env_vars
+  const requiredEnv = status.required_env_vars
+  const isReal = status.configured && status.mode === 'real'
+
+  return (
+    <div className="rounded-lg border border-border/30 bg-muted/10 p-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-center gap-2">
+          <Icon className={`h-5 w-5 ${iconClassName}`} />
+          <div>
+            <p className="font-medium">{title}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              当前实际使用 {status.active_provider}/{status.active_model}
+            </p>
+          </div>
+        </div>
+        <Badge variant={readinessVariant(status)}>{readinessLabel(status)}</Badge>
+      </div>
+
+      <div className="grid gap-3 text-sm md:grid-cols-2">
+        <div className="rounded-md border border-border/30 bg-background/60 p-3">
+          <p className="text-xs text-muted-foreground">实际 Provider / Model</p>
+          <p className="mt-1 break-words font-medium">{status.active_provider} / {status.active_model}</p>
+        </div>
+        <div className="rounded-md border border-border/30 bg-background/60 p-3">
+          <p className="text-xs text-muted-foreground">目标配置 Provider / Model</p>
+          <p className="mt-1 break-words font-medium">{status.provider} / {status.model}</p>
+        </div>
+        <div className="rounded-md border border-border/30 bg-background/60 p-3">
+          <p className="text-xs text-muted-foreground">Base URL</p>
+          <p className="mt-1 font-medium">{baseUrlLabel(status)}</p>
+        </div>
+        <div className="rounded-md border border-border/30 bg-background/60 p-3">
+          <p className="text-xs text-muted-foreground">必需环境变量</p>
+          <p className="mt-1 font-mono text-xs">
+            {requiredEnv.length ? requiredEnv.join(', ') : '无'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        {missingEnv.length > 0 ? (
+          <div className="flex items-start gap-3 rounded-md border border-error/20 bg-error/10 p-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-error" />
+            <div>
+              <p className="text-sm font-medium text-error">缺失环境变量</p>
+              <p className="mt-1 font-mono text-xs text-muted-foreground">{missingEnv.join(', ')}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className={`h-4 w-4 ${isReal ? 'text-success' : 'text-warning'}`} />
+            <span>{isReal ? '真实 provider 已就绪' : '没有缺失的必需变量，当前仍使用 mock。'}</span>
+          </div>
+        )}
+
+        {status.fallback_reason && (
+          <div className="flex items-start gap-3 rounded-md border border-warning/20 bg-warning/10 p-3">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <p className="text-xs leading-5 text-muted-foreground">{status.fallback_reason}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   const params = useParams()
@@ -44,19 +138,13 @@ export default function SettingsPage() {
     enabled: !!projectId,
   })
 
-  const { data: runtimeData, isLoading: runtimeLoading } = useQuery({
+  const runtimeQuery = useQuery({
     queryKey: ['runtime-status'],
     queryFn: () => api.runtime.status(),
   })
 
-  const { data: providersData, isLoading: providersLoading } = useQuery({
-    queryKey: ['runtime-providers'],
-    queryFn: () => api.runtime.providers(),
-  })
-
   const project = projectData?.data
-  const runtime = runtimeData?.data
-  const providers = providersData?.data
+  const runtime = runtimeQuery.data?.data
 
   useEffect(() => {
     if (project) {
@@ -113,6 +201,14 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-6">
+        <RuntimeDiagnosticsCard
+          runtime={runtime}
+          isLoading={runtimeQuery.isLoading}
+          isFetching={runtimeQuery.isFetching}
+          isError={runtimeQuery.isError}
+          onRefresh={() => runtimeQuery.refetch()}
+        />
+
         {/* Project Settings */}
         <Card>
           <CardHeader>
@@ -178,92 +274,52 @@ export default function SettingsPage() {
         {/* Runtime Status */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Server className="h-4 w-4 text-blue-500" />
-              运行时状态
-            </CardTitle>
-            <CardDescription>LLM 和 Embedding 服务的配置状态</CardDescription>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Server className="h-4 w-4 text-blue-500" />
+                  运行时状态
+                </CardTitle>
+                <CardDescription>LLM 和 Embedding 服务的真实模式、mock fallback 和缺失配置</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => runtimeQuery.refetch()} disabled={runtimeQuery.isFetching}>
+                {runtimeQuery.isFetching ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                刷新
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            {runtimeLoading ? (
+            {runtimeQuery.isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
               </div>
             ) : runtime ? (
               <div className="space-y-4">
-                {/* LLM Status */}
-                <div className="p-4 rounded-lg border border-border/30 bg-muted/10">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Brain className="h-5 w-5 text-violet-500" />
-                      <p className="font-medium">LLM 服务</p>
-                    </div>
-                    <Badge variant={runtime.llm.configured ? 'success' : 'warning'}>
-                      {runtime.llm.configured ? '已配置' : '未配置'}
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">服务商</p>
-                      <p className="font-medium">{runtime.llm.provider || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">模型</p>
-                      <p className="font-medium">{runtime.llm.model || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">模式</p>
-                      <Badge variant={runtime.llm.mode === 'real' ? 'success' : 'secondary'}>
-                        {runtime.llm.mode}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
+                <ProviderReadinessPanel
+                  title="LLM 服务"
+                  status={runtime.llm}
+                  icon={Brain}
+                  iconClassName="text-violet-500"
+                />
+                <ProviderReadinessPanel
+                  title="Embedding 服务"
+                  status={runtime.embedding}
+                  icon={Database}
+                  iconClassName="text-blue-500"
+                />
 
-                {/* Embedding Status */}
-                <div className="p-4 rounded-lg border border-border/30 bg-muted/10">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Database className="h-5 w-5 text-blue-500" />
-                      <p className="font-medium">Embedding 服务</p>
-                    </div>
-                    <Badge variant={runtime.embedding.configured ? 'success' : 'warning'}>
-                      {runtime.embedding.configured ? '已配置' : '未配置'}
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">服务商</p>
-                      <p className="font-medium">{runtime.embedding.provider || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">模型</p>
-                      <p className="font-medium">{runtime.embedding.model || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">模式</p>
-                      <Badge variant={runtime.embedding.mode === 'real' ? 'success' : 'secondary'}>
-                        {runtime.embedding.mode}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Info */}
-                <div className="p-4 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                <div className="rounded-lg border border-violet-500/20 bg-violet-500/10 p-4">
                   <div className="flex items-start gap-3">
-                    <Info className="h-5 w-5 text-violet-500 mt-0.5 shrink-0" />
+                    <Key className="mt-0.5 h-5 w-5 shrink-0 text-violet-500" />
                     <div>
-                      <p className="text-sm font-medium text-violet-400 mb-1">配置说明</p>
+                      <p className="mb-1 text-sm font-medium text-violet-400">密钥显示策略</p>
                       <p className="text-xs text-muted-foreground">
-                        要使用真实的 LLM 服务，请在项目根目录的 <code className="px-1 py-0.5 rounded bg-muted/20 font-mono">.env</code> 文件中配置 API Key。
-                        当前为 <Badge variant="secondary" className="text-[10px] mx-1">{runtime.llm.mode}</Badge> 模式。
+                        页面只显示环境变量名称和缺失状态，不显示任何 API Key 值。
                       </p>
-                      <div className="mt-2 text-xs text-muted-foreground space-y-1">
-                        <p><code className="px-1 py-0.5 rounded bg-muted/20 font-mono">LLM_PROVIDER=openai</code></p>
-                        <p><code className="px-1 py-0.5 rounded bg-muted/20 font-mono">LLM_MODEL=gpt-4o-mini</code></p>
-                        <p><code className="px-1 py-0.5 rounded bg-muted/20 font-mono">OPENAI_API_KEY=sk-xxx</code></p>
-                      </div>
                     </div>
                   </div>
                 </div>

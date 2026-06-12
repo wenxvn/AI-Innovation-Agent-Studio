@@ -26,22 +26,21 @@ import {
 import Link from 'next/link'
 
 const STAGE_LABELS: Record<string, string> = {
+  requirement_analysis: '需求分析',
   ideation: '创意构思',
-  research: '需求调研',
+  research: '调研综合',
+  product: 'PRD 撰写',
   architecture: '架构设计',
+  coding: '代码生成',
+  qa: '质量检查',
+  pitch: '答辩准备',
+  human_review: '人工审核',
   development: '开发实现',
   testing: '测试验证',
   completed: '已完成',
 }
 
-const STAGE_PROGRESS: Record<string, number> = {
-  ideation: 10,
-  research: 25,
-  architecture: 40,
-  development: 60,
-  testing: 80,
-  completed: 100,
-}
+const WORKFLOW_STEP_LABELS = ['需求分析', '创意', '调研', 'PRD', '架构', '代码', 'QA', '答辩']
 
 export default function ProjectOverviewPage() {
   const params = useParams()
@@ -56,6 +55,12 @@ export default function ProjectOverviewPage() {
   const { data: runsData } = useQuery({
     queryKey: ['agent-runs', projectId],
     queryFn: () => api.agents.listRuns(projectId),
+    enabled: !!projectId,
+  })
+
+  const { data: workflowData } = useQuery({
+    queryKey: ['workflow-status', projectId],
+    queryFn: () => api.workflow.getStatus(projectId),
     enabled: !!projectId,
   })
 
@@ -89,6 +94,7 @@ export default function ProjectOverviewPage() {
   const evals = evalsData?.data || []
   const docs = docsData?.data || []
   const memories = memData?.data || []
+  const workflowStatus = workflowData?.data
 
   const avgScore = evals.length > 0
     ? (evals.reduce((sum, e) => sum + e.score, 0) / evals.length).toFixed(1)
@@ -98,7 +104,9 @@ export default function ProjectOverviewPage() {
   const failedRuns = runs.filter(r => r.status === 'failed').length
   const successRate = runs.length > 0 ? ((completedRuns / runs.length) * 100).toFixed(0) : '0'
 
-  const stageProgress = STAGE_PROGRESS[project?.current_stage || ''] || 0
+  const stageProgress = workflowStatus?.progress ?? project?.progress ?? 0
+  const currentStage = workflowStatus?.current_stage || project?.current_stage || ''
+  const failedNodes = workflowStatus?.failed_nodes || []
 
   if (projectLoading) {
     return (
@@ -135,7 +143,7 @@ export default function ProjectOverviewPage() {
               <Workflow className="h-4 w-4 text-violet-500" />
               <span className="text-sm font-medium">项目进度</span>
             </div>
-            <Badge variant="accent">{STAGE_LABELS[project?.current_stage || ''] || project?.current_stage}</Badge>
+            <Badge variant="accent">{STAGE_LABELS[currentStage] || currentStage}</Badge>
           </div>
           <div className="w-full bg-muted/30 rounded-full h-3 mb-2">
             <div
@@ -143,14 +151,25 @@ export default function ProjectOverviewPage() {
               style={{ width: `${stageProgress}%` }}
             />
           </div>
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>创意构思</span>
-            <span>需求调研</span>
-            <span>架构设计</span>
-            <span>开发实现</span>
-            <span>测试验证</span>
-            <span>已完成</span>
+          <div className="grid grid-cols-4 gap-2 text-center text-xs text-muted-foreground sm:grid-cols-8">
+            {WORKFLOW_STEP_LABELS.map((label) => (
+              <span key={label}>{label}</span>
+            ))}
           </div>
+          {workflowStatus?.next_suggestion && (
+            <div className="mt-3 rounded-md border border-border/60 bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
+              {workflowStatus.next_suggestion}
+            </div>
+          )}
+          {failedNodes.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {failedNodes.map((node) => (
+                <Badge key={node.stage_id} variant="destructive" className="text-xs">
+                  {node.label} 失败
+                </Badge>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -217,7 +236,7 @@ export default function ProjectOverviewPage() {
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">阶段</span>
-              <span>{STAGE_LABELS[project?.current_stage || ''] || project?.current_stage}</span>
+              <span>{STAGE_LABELS[currentStage] || currentStage}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">文档</span>

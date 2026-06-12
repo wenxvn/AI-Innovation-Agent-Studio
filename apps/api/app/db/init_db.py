@@ -1,7 +1,7 @@
 import logging
 from app.db.base import Base
 from app.db.session import engine
-from app.models import project, document, memory, skill, agent_run, tool_call, evaluation, output, trace_event
+from app.models import project, document, memory, skill, agent_run, tool_call, evaluation, output, trace_event, prompt_template
 
 logger = logging.getLogger(__name__)
 

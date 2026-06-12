@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from app.db.session import get_db
@@ -23,14 +23,17 @@ def create_output(project_id: str, body: OutputCreate, db: Session = Depends(get
 
 @router.get("/{output_id}", response_model=DataResponse[OutputOut])
 def get_output(project_id: str, output_id: str, db: Session = Depends(get_db)):
-    output = svc.get_output(db, output_id)
-    if not output or output.project_id != project_id:
+    output = svc.get_output_for_project(db, project_id, output_id)
+    if not output:
         raise HTTPException(status_code=404, detail="Output not found")
     return DataResponse(data=output)
 
 
 @router.patch("/{output_id}", response_model=DataResponse[OutputOut])
 def update_output(project_id: str, output_id: str, body: OutputUpdate, db: Session = Depends(get_db)):
+    existing = svc.get_output_for_project(db, project_id, output_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Output not found")
     output = svc.update_output(db, output_id, body)
     if not output:
         raise HTTPException(status_code=404, detail="Output not found")
@@ -39,6 +42,9 @@ def update_output(project_id: str, output_id: str, body: OutputUpdate, db: Sessi
 
 @router.delete("/{output_id}")
 def delete_output(project_id: str, output_id: str, db: Session = Depends(get_db)):
+    existing = svc.get_output_for_project(db, project_id, output_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Output not found")
     ok = svc.delete_output(db, output_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Output not found")
@@ -46,13 +52,36 @@ def delete_output(project_id: str, output_id: str, db: Session = Depends(get_db)
 
 
 @router.get("/{output_id}/download")
-def download_output(project_id: str, output_id: str, db: Session = Depends(get_db)):
-    output = svc.get_output(db, output_id)
-    if not output or output.project_id != project_id:
+def download_output(
+    project_id: str,
+    output_id: str,
+    format: str = Query("markdown", description="Export format. Currently supports markdown."),
+    db: Session = Depends(get_db),
+):
+    return _export_output_response(db, project_id, output_id, format)
+
+
+@router.get("/{output_id}/export")
+def export_output(
+    project_id: str,
+    output_id: str,
+    format: str = Query("markdown", description="Export format. Currently supports markdown."),
+    db: Session = Depends(get_db),
+):
+    return _export_output_response(db, project_id, output_id, format)
+
+
+def _export_output_response(db: Session, project_id: str, output_id: str, export_format: str) -> Response:
+    output = svc.get_output_for_project(db, project_id, output_id)
+    if not output:
         raise HTTPException(status_code=404, detail="Output not found")
-    filename = f"{output.title}.md"
+    try:
+        exported = svc.build_output_export(output, export_format)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     return Response(
-        content=output.content.encode("utf-8"),
-        media_type="text/markdown",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        content=exported.content,
+        media_type=exported.media_type,
+        headers={"Content-Disposition": svc.content_disposition_header(exported.filename)},
     )

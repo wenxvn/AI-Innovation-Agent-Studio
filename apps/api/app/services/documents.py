@@ -1,14 +1,21 @@
-import os
 import asyncio
+import os
+from datetime import datetime, timezone
+from typing import Optional
+
+from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
-from sqlalchemy import select, text
+
+from app.core.config import get_settings
 from app.models.document import Document, DocumentChunk
 from app.services.llm import get_embedding_provider
 from app.services.providers.mock_provider import MockEmbeddingProvider
-from app.core.config import get_settings
-from typing import Optional
 
 settings = get_settings()
+
+
+class DocumentParsingError(Exception):
+    """Raised when uploaded content cannot be parsed into readable text."""
 
 
 def list_documents(db: Session, project_id: str) -> list[Document]:
@@ -25,7 +32,15 @@ def get_document(db: Session, document_id: str) -> Optional[Document]:
     return db.get(Document, document_id)
 
 
-def create_document(db: Session, project_id: str, filename: str, file_path: str, file_type: str, file_size: int) -> Document:
+def create_document(
+    db: Session,
+    project_id: str,
+    filename: str,
+    file_path: str,
+    file_type: str,
+    file_size: int,
+    metadata: Optional[dict] = None,
+) -> Document:
     doc = Document(
         project_id=project_id,
         filename=filename,
@@ -33,6 +48,7 @@ def create_document(db: Session, project_id: str, filename: str, file_path: str,
         file_type=file_type,
         file_size=file_size,
         status="uploaded",
+        metadata_=metadata or {},
     )
     db.add(doc)
     db.commit()
@@ -51,48 +67,139 @@ def delete_document(db: Session, document_id: str) -> bool:
     return True
 
 
-def extract_text(file_path: str, file_type: str) -> str:
-    if file_type in ("text/plain", "text/markdown", ".txt", ".md"):
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+def _read_utf8_text(file_path: str) -> str:
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
             return f.read()
-    return ""
+    except UnicodeDecodeError as exc:
+        raise DocumentParsingError(
+            "Could not read this text file as UTF-8. Save it as UTF-8 text and upload again."
+        ) from exc
+    except OSError as exc:
+        raise DocumentParsingError("Could not read the uploaded file from storage.") from exc
 
 
-def chunk_text(text: str, chunk_size: int = 800, overlap: int = 100) -> list[str]:
+def _read_pdf_text(file_path: str) -> str:
+    try:
+        from pypdf import PdfReader
+    except ImportError as exc:
+        raise DocumentParsingError(
+            "PDF parsing is not available. Install the PDF parser dependency and try again."
+        ) from exc
+
+    try:
+        reader = PdfReader(file_path)
+        if getattr(reader, "is_encrypted", False):
+            raise DocumentParsingError(
+                "Encrypted PDFs are not supported. Remove the password and upload again."
+            )
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
+    except DocumentParsingError:
+        raise
+    except Exception as exc:
+        raise DocumentParsingError(
+            "Could not parse this PDF. It may be damaged, scanned without text, or unsupported."
+        ) from exc
+
+
+def extract_text(file_path: str, file_type: str) -> str:
+    normalized_type = file_type.lower()
+    if normalized_type in ("text/plain", "text/markdown", ".txt", ".md"):
+        text_content = _read_utf8_text(file_path)
+    elif normalized_type in ("application/pdf", ".pdf"):
+        text_content = _read_pdf_text(file_path)
+    else:
+        raise DocumentParsingError(
+            f"Unsupported document type '{file_type}'. Upload TXT, Markdown, or PDF files."
+        )
+
+    if not text_content.strip():
+        raise DocumentParsingError("No readable text was found in the uploaded document.")
+    return text_content
+
+
+def chunk_text(text_content: str, chunk_size: int = 800, overlap: int = 100) -> list[str]:
     chunks = []
     start = 0
-    while start < len(text):
+    while start < len(text_content):
         end = start + chunk_size
-        chunk = text[start:end]
+        chunk = text_content[start:end]
         if chunk.strip():
             chunks.append(chunk.strip())
         start = end - overlap
     return chunks
 
 
-async def _embed_and_index_async(db: Session, document_id: str) -> Document:
+def _error_metadata(message: str, stage: str, exc: Exception | None = None) -> dict:
+    return {
+        "stage": stage,
+        "message": message,
+        "type": exc.__class__.__name__ if exc else "",
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _clear_document_errors(doc: Document) -> None:
+    metadata = dict(doc.metadata_ or {})
+    for key in ("error_message", "parse_error", "index_error", "last_error"):
+        metadata.pop(key, None)
+    doc.metadata_ = metadata
+
+
+def _mark_document_failed(
+    db: Session,
+    doc: Document,
+    message: str,
+    stage: str,
+    exc: Exception | None = None,
+) -> Document:
+    error_detail = _error_metadata(message, stage, exc)
+    metadata = dict(doc.metadata_ or {})
+    metadata["error_message"] = message
+    metadata["last_error"] = error_detail
+    metadata[f"{stage}_error"] = error_detail
+    doc.metadata_ = metadata
+    doc.status = "failed"
+    doc.embedding_status = "failed"
+    doc.chunk_count = 0
+    doc.summary = ""
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+
+def _prepare_document_for_indexing(db: Session, doc: Document) -> None:
+    doc.status = "parsing"
+    doc.embedding_status = "pending"
+    doc.chunk_count = 0
+    doc.summary = ""
+    _clear_document_errors(doc)
+    db.execute(delete(DocumentChunk).where(DocumentChunk.document_id == doc.id))
+    db.add(doc)
+    db.commit()
+
+
+async def _embed_and_index_async(db: Session, document_id: str) -> Optional[Document]:
     doc = db.get(Document, document_id)
     if not doc:
         return doc
 
-    doc.status = "parsing"
-    db.commit()
+    _prepare_document_for_indexing(db, doc)
 
     try:
         text_content = extract_text(doc.file_path, doc.file_type)
-        if not text_content:
-            doc.status = "failed"
-            doc.summary = "Unsupported file type or empty content"
-            db.commit()
-            return doc
-
         doc.summary = text_content[:200] + "..." if len(text_content) > 200 else text_content
         chunks = chunk_text(text_content)
+
+        if not chunks:
+            raise DocumentParsingError("No indexable text chunks were found in the uploaded document.")
 
         emb_provider = get_embedding_provider()
         is_mock = isinstance(emb_provider, MockEmbeddingProvider)
 
         batch_size = 20
+        last_embedding_result = None
         for batch_start in range(0, len(chunks), batch_size):
             batch = chunks[batch_start : batch_start + batch_size]
             emb_result = await emb_provider.embed_texts(batch)
@@ -102,6 +209,10 @@ async def _embed_and_index_async(db: Session, document_id: str) -> Document:
                 emb_result = await fallback.embed_texts(batch)
                 is_mock = True
 
+            if emb_result.error:
+                raise RuntimeError(f"Embedding failed: {emb_result.error}")
+
+            last_embedding_result = emb_result
             for i, chunk_content in enumerate(batch):
                 idx = batch_start + i
                 vector = emb_result.vectors[i] if i < len(emb_result.vectors) else None
@@ -121,19 +232,33 @@ async def _embed_and_index_async(db: Session, document_id: str) -> Document:
         doc.chunk_count = len(chunks)
         doc.status = "indexed"
         doc.embedding_status = "mock" if is_mock else "real"
-        doc.embedding_provider = emb_result.provider if chunks else ""
-        doc.embedding_model = emb_result.model if chunks else ""
+        doc.embedding_provider = last_embedding_result.provider if last_embedding_result else ""
+        doc.embedding_model = last_embedding_result.model if last_embedding_result else ""
+        _clear_document_errors(doc)
+        db.add(doc)
         db.commit()
         db.refresh(doc)
-    except Exception as e:
-        doc.status = "failed"
-        doc.summary = str(e)
-        db.commit()
+    except DocumentParsingError as exc:
+        db.rollback()
+        doc = db.get(Document, document_id)
+        if doc:
+            return _mark_document_failed(db, doc, str(exc), "parse", exc)
+    except Exception as exc:
+        db.rollback()
+        doc = db.get(Document, document_id)
+        if doc:
+            return _mark_document_failed(
+                db,
+                doc,
+                "Document indexing failed. Please try reindexing or upload the file again.",
+                "index",
+                exc,
+            )
 
     return doc
 
 
-def parse_and_index_document(db: Session, document_id: str) -> Document:
+def parse_and_index_document(db: Session, document_id: str) -> Optional[Document]:
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:

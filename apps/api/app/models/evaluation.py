@@ -13,7 +13,9 @@ class Evaluation(Base, TimestampMixin):
     rubric: Mapped[dict] = mapped_column(JSON, nullable=True, default=dict)
     result: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
     feedback: Mapped[str] = mapped_column(Text, nullable=True, default="")
-    risks: Mapped[dict] = mapped_column(JSON, nullable=True, default=list)
+    risks: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
+    review_note: Mapped[str] = mapped_column(Text, nullable=True, default="")
     metadata_: Mapped[dict] = mapped_column("metadata", JSON, nullable=True, default=dict)
 
     project = relationship("Project", back_populates="evaluations")

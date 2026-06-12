@@ -61,6 +61,18 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 API 文档: http://localhost:8000/docs
 
+#### 连接诊断
+
+本地页面会读取 `http://localhost:8000/api/v1/runtime/status` 显示 API、数据库、Redis、Storage、LLM/Embedding provider 和 CORS origins 状态。也可以直接访问 `http://localhost:8000/health` 查看同一组诊断信息。
+
+如果前端端口不是 3000，请把实际 origin 加入后端环境变量：
+
+```bash
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001,http://localhost:3002,http://127.0.0.1:3002,http://localhost:5173,http://127.0.0.1:5173
+```
+
+诊断接口只返回环境变量名称、provider 模式和连接状态，不返回任何 API Key 值。
+
 #### 基础设施 (可选)
 
 ```bash

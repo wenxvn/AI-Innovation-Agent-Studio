@@ -1,5 +1,7 @@
 from fastapi import APIRouter
+from app.core.version import API_VERSION
 from app.services.llm import get_provider_status
+from app.services.runtime_status import build_runtime_diagnostics
 from app.schemas.common import DataResponse
 
 router = APIRouter(prefix="/runtime", tags=["runtime"])
@@ -13,18 +15,4 @@ def get_providers():
 
 @router.get("/status")
 def get_status():
-    status = get_provider_status()
-    return DataResponse(data={
-        "llm": {
-            "provider": status.llm_provider,
-            "model": status.llm_model,
-            "mode": status.llm_mode,
-            "configured": status.llm_configured,
-        },
-        "embedding": {
-            "provider": status.embedding_provider,
-            "model": status.embedding_model,
-            "mode": status.embedding_mode,
-            "configured": status.embedding_configured,
-        },
-    })
+    return DataResponse(data=build_runtime_diagnostics(API_VERSION))

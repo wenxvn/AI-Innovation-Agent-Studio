@@ -9,13 +9,15 @@ from app.models.output import Output
 from app.models.evaluation import Evaluation
 from app.models.tool_call import ToolCall
 from app.schemas.agent_run import AgentRunCreate
-from app.services.memory import get_relevant_memories
-from app.services.documents import search_chunks_for_agent
+from app.services.tools import execute_tool
 from app.services.llm import get_llm_provider, get_provider_status
 from app.services.providers.mock_provider import MockLLMProvider, get_mock_response
 from app.services.trace import create_trace_event
 from app.services.intent_classifier import classify_intent
-from app.prompts.agent_run import SYSTEM_PROMPT, AGENT_RUN_PROMPT, EVAL_JUDGE_PROMPT, format_rubric_description
+from app.prompts.agent_run import AGENT_RUN_PROMPT as FALLBACK_AGENT_RUN_PROMPT
+from app.prompts.agent_run import SYSTEM_PROMPT as FALLBACK_SYSTEM_PROMPT
+from app.services.prompts import AGENT_RUN_PROMPT_NAME, SYSTEM_PROMPT_NAME, get_active_prompt_content
+from app.services.projects import sync_project_workflow_state
 from app.core.config import get_settings
 from typing import Optional
 
@@ -223,76 +225,50 @@ def build_context_pack(
     skill_name: str,
     run_mode: Optional[str] = None,
 ) -> dict:
-    memory_start = time.time()
-    memories = get_relevant_memories(db, project_id, user_input, top_k=3)
-    memory_latency = int((time.time() - memory_start) * 1000)
+    memory_result = execute_tool(
+        db,
+        project_id=project_id,
+        agent_run_id=agent_run_id,
+        tool_name="memory_search",
+        input_params={"query": user_input, "top_k": 3, "skill": skill_name},
+    )
+    rag_result = execute_tool(
+        db,
+        project_id=project_id,
+        agent_run_id=agent_run_id,
+        tool_name="rag_search",
+        input_params={"query": user_input, "top_k": 5, "skill": skill_name},
+    )
 
-    rag_start = time.time()
-    chunks = search_chunks_for_agent(db, project_id, user_input, top_k=5)
-    rag_latency = int((time.time() - rag_start) * 1000)
+    memories = memory_result.output_result.get("memories", [])
+    chunks = rag_result.output_result.get("chunks", [])
 
     context_pack = {
         "task": user_input,
         "selected_skill": skill_name,
         "relevant_memory": [
             {
-                "id": m.id,
-                "memory_type": m.memory_type,
-                "content": m.content,
-                "confidence": m.confidence,
+                "id": m.get("id", ""),
+                "memory_type": m.get("memory_type", "general"),
+                "content": m.get("content", ""),
+                "confidence": m.get("confidence", 1.0),
             }
             for m in memories
         ],
         "retrieved_evidence": [
             {
                 "source_type": "document_chunk",
-                "source_id": c.id,
-                "document_id": c.document_id,
-                "chunk_index": c.chunk_index,
-                "excerpt": c.content[:500],
-                "score": 1.0,
+                "source_id": c.get("chunk_id", ""),
+                "document_id": c.get("document_id", ""),
+                "chunk_index": c.get("chunk_index", 0),
+                "excerpt": c.get("content", "")[:500],
+                "score": c.get("score", 1.0),
             }
             for c in chunks
         ],
         "constraints": [],
         "risks": [],
     }
-
-    try:
-        tc_memory = ToolCall(
-            project_id=project_id,
-            agent_run_id=agent_run_id,
-            tool_name="memory_search",
-            input_params={"query": user_input, "top_k": 3, "skill": skill_name},
-            output_result={"hit_count": len(memories), "memories": [m.id for m in memories]},
-            status="completed",
-            permission_level="low",
-            requires_approval=False,
-            latency_ms=memory_latency,
-        )
-        db.add(tc_memory)
-        db.commit()
-        logger.info("Tool call recorded: memory_search, hits=%d, latency=%dms", len(memories), memory_latency)
-    except Exception as e:
-        logger.error("Failed to record memory_search tool call: %s", e)
-
-    try:
-        tc_rag = ToolCall(
-            project_id=project_id,
-            agent_run_id=agent_run_id,
-            tool_name="rag_search",
-            input_params={"query": user_input, "top_k": 5, "skill": skill_name},
-            output_result={"hit_count": len(chunks), "chunks": [c.id for c in chunks]},
-            status="completed",
-            permission_level="low",
-            requires_approval=False,
-            latency_ms=rag_latency,
-        )
-        db.add(tc_rag)
-        db.commit()
-        logger.info("Tool call recorded: rag_search, hits=%d, latency=%dms", len(chunks), rag_latency)
-    except Exception as e:
-        logger.error("Failed to record rag_search tool call: %s", e)
 
     if is_inspiration_discovery(user_input, skill_name, run_mode):
         context_pack["social_trend_scan"] = build_social_trend_scan(db, project_id, agent_run_id, user_input)
@@ -553,7 +529,18 @@ async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -
 
         expected_type = SKILL_TO_TYPE.get(skill_name, "document")
 
-        prompt = AGENT_RUN_PROMPT.format(
+        agent_prompt_template = get_active_prompt_content(
+            db,
+            AGENT_RUN_PROMPT_NAME,
+            FALLBACK_AGENT_RUN_PROMPT,
+        )
+        system_prompt = get_active_prompt_content(
+            db,
+            SYSTEM_PROMPT_NAME,
+            FALLBACK_SYSTEM_PROMPT,
+        )
+
+        prompt = agent_prompt_template.format(
             skill_name=skill_name,
             agent_name=agent_name,
             user_input=data.user_input,
@@ -565,7 +552,7 @@ async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -
         )
 
         messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
         ]
 
@@ -660,24 +647,34 @@ async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -
             summary = data.user_input[:50].strip()
             output_title = f"{prefix} - {summary}"
 
-        new_output = Output(
+        output_execution = execute_tool(
+            db,
             project_id=project_id,
             agent_run_id=run.id,
-            output_type=output.get("type", expected_type),
-            title=output_title,
-            content=output.get("content", ""),
-            version=1,
-            created_by_agent=agent_name,
-            status="completed",
-            metadata_={
-                "provider": llm_result.provider,
-                "model": llm_result.model,
-                "mode": llm_result.mode,
-                "run_mode": run_mode,
+            tool_name="output_writer",
+            input_params={
+                "skill": skill_name,
+                "user_input": data.user_input,
+                "output_type": output.get("type", expected_type),
+                "title": output_title,
+                "content": output.get("content", ""),
+                "created_by_agent": agent_name,
+                "status": "completed",
+                "metadata": {
+                    "provider": llm_result.provider,
+                    "model": llm_result.model,
+                    "mode": llm_result.mode,
+                    "run_mode": run_mode,
+                },
             },
         )
-        db.add(new_output)
-        db.flush()
+        if output_execution.status != "completed":
+            raise RuntimeError(output_execution.error_message or "Output writer failed")
+
+        output_id = output_execution.output_result.get("output_id", "")
+        new_output = db.get(Output, output_id)
+        if not new_output:
+            raise RuntimeError("Output writer did not persist an output")
 
         logger.info(
             "Output created: id=%s, type=%s, title=%s, project=%s",
@@ -702,24 +699,6 @@ async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -
         )
         db.add(new_eval)
 
-        tool_call = ToolCall(
-            project_id=project_id,
-            agent_run_id=run.id,
-            tool_name="output_writer",
-            input_params={"skill": skill_name, "user_input": data.user_input, "output_type": output.get("type", expected_type), "run_mode": run_mode},
-            output_result={"output_id": new_output.id, "title": new_output.title, "type": new_output.output_type},
-            status="completed",
-            permission_level="low",
-            requires_approval=False,
-            latency_ms=latency_ms,
-        )
-        db.add(tool_call)
-
-        logger.info(
-            "Tool call recorded: output_writer, output_id=%s, type=%s",
-            new_output.id, new_output.output_type,
-        )
-
         create_trace_event(
             db, project_id, run.id,
             event_type="output_saved",
@@ -742,6 +721,20 @@ async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -
             output_data={"latency_ms": latency_ms, "tokens": token_usage_dict["total_tokens"]},
         )
 
+        synced_project = sync_project_workflow_state(db, project_id)
+        if synced_project:
+            create_trace_event(
+                db, project_id, run.id,
+                event_type="workflow_updated",
+                title="工作流已更新",
+                message=f"Stage: {synced_project.current_stage}, Progress: {synced_project.progress}%",
+                status="success",
+                output_data={
+                    "current_stage": synced_project.current_stage,
+                    "progress": synced_project.progress,
+                },
+            )
+
         logger.info(
             "Agent run completed: project=%s, run=%s, skill=%s, latency=%dms, tokens=%d, output=%s",
             project_id, run.id, skill_name, latency_ms, token_usage_dict["total_tokens"], new_output.id,
@@ -762,6 +755,23 @@ async def _run_agent_async(db: Session, project_id: str, data: AgentRunCreate) -
             status="error",
             error_data={"message": str(e)},
         )
+
+        try:
+            synced_project = sync_project_workflow_state(db, project_id)
+            if synced_project:
+                create_trace_event(
+                    db, project_id, run.id,
+                    event_type="workflow_updated",
+                    title="工作流已更新",
+                    message=f"Stage: {synced_project.current_stage}, Progress: {synced_project.progress}%",
+                    status="info",
+                    output_data={
+                        "current_stage": synced_project.current_stage,
+                        "progress": synced_project.progress,
+                    },
+                )
+        except Exception as sync_error:
+            logger.error("Failed to sync workflow after agent failure: %s", sync_error)
 
     return run
 
@@ -803,6 +813,7 @@ def approve_agent_run(db: Session, run_id: str) -> Optional[AgentRun]:
         run.status = "completed"
         db.commit()
         db.refresh(run)
+        sync_project_workflow_state(db, run.project_id)
     return run
 
 
@@ -815,4 +826,5 @@ def reject_agent_run(db: Session, run_id: str) -> Optional[AgentRun]:
         run.error_message = "Rejected by user"
         db.commit()
         db.refresh(run)
+        sync_project_workflow_state(db, run.project_id)
     return run

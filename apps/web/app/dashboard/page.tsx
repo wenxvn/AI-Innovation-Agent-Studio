@@ -29,6 +29,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { RuntimeDiagnosticsCard } from '@/components/runtime-diagnostics-card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -50,9 +51,15 @@ import { api, type DashboardStats, type Project, type ProjectCreate } from '@/li
 const BLUE = '#002FA7'
 
 const STAGE_LABELS: Record<string, string> = {
+  requirement_analysis: '需求分析',
   ideation: '创意构思',
-  research: '需求调研',
+  research: '调研综合',
+  product: 'PRD 撰写',
   architecture: '架构设计',
+  coding: '代码生成',
+  qa: '质量检查',
+  pitch: '答辩准备',
+  human_review: '人工审核',
   development: '开发实现',
   testing: '测试验证',
   completed: '已完成',
@@ -142,9 +149,9 @@ export default function DashboardPage() {
     retry: 1,
   })
 
-  const healthQuery = useQuery({
-    queryKey: ['api-health'],
-    queryFn: () => api.health(),
+  const runtimeQuery = useQuery({
+    queryKey: ['runtime-status'],
+    queryFn: () => api.runtime.status(),
     refetchInterval: 10000,
     retry: 1,
   })
@@ -180,8 +187,24 @@ export default function DashboardPage() {
   const total = projectsQuery.data?.total || 0
   const stats = statsQuery.data?.data as DashboardStats | undefined
   const firstProject = projects[0]
-  const apiReady = healthQuery.data?.status === 'ok' || healthQuery.data?.status === 'degraded'
-  const healthText = healthQuery.isError ? '无法连接' : apiReady ? healthQuery.data?.status : '检测中'
+  const runtime = runtimeQuery.data?.data
+  const apiReady = runtime?.api.ok
+  const healthText = runtimeQuery.isError ? '无法连接' : apiReady ? runtime?.status : '检测中'
+  const llmStatus = runtime?.llm
+  const llmStateText = runtimeQuery.isError
+    ? '未连接'
+    : llmStatus
+      ? llmStatus.configured && llmStatus.mode === 'real'
+        ? '真实模式'
+        : llmStatus.missing_env_vars.length > 0
+          ? '缺失配置'
+          : 'Mock fallback'
+      : '检测中'
+  const llmBadgeClass = llmStatus?.configured && llmStatus.mode === 'real'
+    ? 'border-emerald-600 text-emerald-700'
+    : llmStatus?.missing_env_vars.length
+      ? 'border-[#B42318] text-[#B42318]'
+      : 'border-amber-600 text-amber-700'
 
   const handleSubmit = () => {
     if (!form.name.trim()) {
@@ -223,11 +246,15 @@ export default function DashboardPage() {
             <Badge variant="outline" className="h-9 rounded-lg border-[#D7DADF] bg-white px-3 text-[#0C111D]">
               API：{healthText}
             </Badge>
+            <Badge variant="outline" className={`h-9 rounded-lg bg-white px-3 ${llmBadgeClass}`}>
+              模型：{llmStateText}
+              {llmStatus ? ` · ${llmStatus.active_provider}/${llmStatus.active_model}` : ''}
+            </Badge>
             <Button
               variant="outline"
               className="h-9 rounded-lg border-[#D7DADF] bg-white"
               onClick={() => {
-                healthQuery.refetch()
+                runtimeQuery.refetch()
                 projectsQuery.refetch()
                 statsQuery.refetch()
               }}
@@ -457,6 +484,14 @@ export default function DashboardPage() {
         </section>
 
         <aside className="space-y-6">
+          <RuntimeDiagnosticsCard
+            runtime={runtime}
+            isLoading={runtimeQuery.isLoading}
+            isFetching={runtimeQuery.isFetching}
+            isError={runtimeQuery.isError}
+            onRefresh={() => runtimeQuery.refetch()}
+          />
+
           <Card className="rounded-lg border-[#D7DADF] bg-white shadow-none">
             <CardHeader className="border-b border-[#D7DADF] p-5">
               <p className="font-mono text-sm text-[#002FA7]">02</p>
@@ -544,12 +579,12 @@ export default function DashboardPage() {
               <div className="border-b border-r border-[#D7DADF] p-4">
                 <Database className="mb-3 h-5 w-5 text-[#002FA7]" />
                 <p className="text-xs text-[#5C6674]">数据库</p>
-                <p className="mt-1 text-sm font-medium">{healthQuery.data?.database || '-'}</p>
+                <p className="mt-1 text-sm font-medium">{runtime?.database.status || '-'}</p>
               </div>
               <div className="border-b border-[#D7DADF] p-4">
                 <ShieldCheck className="mb-3 h-5 w-5 text-[#002FA7]" />
                 <p className="text-xs text-[#5C6674]">Redis</p>
-                <p className="mt-1 text-sm font-medium">{healthQuery.data?.redis || '-'}</p>
+                <p className="mt-1 text-sm font-medium">{runtime?.redis.status || '-'}</p>
               </div>
               <div className="border-r border-[#D7DADF] p-4">
                 <FileText className="mb-3 h-5 w-5 text-[#002FA7]" />

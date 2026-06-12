@@ -24,7 +24,7 @@ import {
 import Link from 'next/link'
 import { usePathname, useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api-client'
+import { api, type ProviderRuntimeStatus } from '@/lib/api-client'
 
 const navItems = [
   { label: '概览', icon: FolderOpen, suffix: '' },
@@ -40,6 +40,25 @@ const navItems = [
   { label: '产物', icon: FileText, suffix: '/outputs' },
   { label: '设置', icon: Settings, suffix: '/settings' },
 ]
+
+function providerStatusLabel(status: ProviderRuntimeStatus) {
+  if (status.configured && status.mode === 'real') return '真实模式'
+  if (status.missing_env_vars.length > 0) return '缺失配置'
+  return 'Mock fallback'
+}
+
+function providerStatusVariant(status: ProviderRuntimeStatus): 'success' | 'destructive' | 'warning' {
+  if (status.configured && status.mode === 'real') return 'success'
+  if (status.missing_env_vars.length > 0) return 'destructive'
+  return 'warning'
+}
+
+function providerDotClass(status?: ProviderRuntimeStatus) {
+  if (!status) return 'bg-muted-foreground'
+  if (status.configured && status.mode === 'real') return 'bg-emerald-500'
+  if (status.missing_env_vars.length > 0) return 'bg-red-500'
+  return 'bg-amber-500'
+}
 
 export default function ProjectLayout({
   children,
@@ -64,8 +83,12 @@ export default function ProjectLayout({
     retry: false,
   })
   const runtime = runtimeData?.data
-  const runtimeLabel = runtime ? `${runtime.llm.provider}/${runtime.llm.model}` : runtimeError ? '未连接' : '检测中'
-  const runtimeMode = runtime ? runtime.llm.mode : runtimeError ? 'api-offline' : '检测中'
+  const llmStatus = runtime?.llm
+  const runtimeLabel = llmStatus ? `${llmStatus.active_provider}/${llmStatus.active_model}` : runtimeError ? '未连接' : '检测中'
+  const runtimeMode = llmStatus ? providerStatusLabel(llmStatus) : runtimeError ? 'API offline' : '检测中'
+  const runtimeTargetLabel = llmStatus && llmStatus.active_provider !== llmStatus.provider
+    ? `目标 ${llmStatus.provider}/${llmStatus.model}`
+    : null
 
   const isActive = (suffix: string) => {
     const base = `/projects/${projectId}`
@@ -75,9 +98,15 @@ export default function ProjectLayout({
   const showProjectInspector = !pathname.startsWith(`/projects/${projectId}/chat`)
 
   const STAGE_LABELS: Record<string, string> = {
+    requirement_analysis: '需求分析',
     ideation: '创意构思',
-    research: '需求调研',
+    research: '调研综合',
+    product: 'PRD 撰写',
     architecture: '架构设计',
+    coding: '代码生成',
+    qa: '质量检查',
+    pitch: '答辩准备',
+    human_review: '人工审核',
     development: '开发实现',
     testing: '测试验证',
     completed: '已完成',
@@ -109,10 +138,24 @@ export default function ProjectLayout({
               <span className="hidden sm:inline">
                 模型: {runtimeLabel}
               </span>
-              <span className="hidden sm:inline">•</span>
+              {runtimeTargetLabel && (
+                <span className="hidden lg:inline text-xs text-muted-foreground">
+                  {runtimeTargetLabel}
+                </span>
+              )}
               <span className="flex items-center gap-1">
-                <div className={`w-2 h-2 rounded-full ${runtime?.llm.configured ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
-                <span className="hidden sm:inline">{runtimeMode}</span>
+                <div className={`w-2 h-2 rounded-full ${providerDotClass(llmStatus)}`}></div>
+                {llmStatus ? (
+                  <Badge
+                    variant={providerStatusVariant(llmStatus)}
+                    className="hidden sm:inline-flex"
+                    title={llmStatus.fallback_reason || undefined}
+                  >
+                    {runtimeMode}
+                  </Badge>
+                ) : (
+                  <span className="hidden sm:inline">{runtimeMode}</span>
+                )}
               </span>
             </div>
             <ThemeToggle />

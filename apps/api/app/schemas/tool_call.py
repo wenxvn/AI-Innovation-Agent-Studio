@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
@@ -9,6 +9,13 @@ class ToolCallApprove(BaseModel):
 
 class ToolCallReject(BaseModel):
     reason: str = ""
+
+
+class ToolExecuteRequest(BaseModel):
+    agent_run_id: str
+    tool_name: str
+    input_params: dict = Field(default_factory=dict)
+    tool_call_id: Optional[str] = None
 
 
 class ToolCallOut(BaseModel):
@@ -28,3 +35,13 @@ class ToolCallOut(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ToolExecutionOut(BaseModel):
+    tool_call: ToolCallOut
+    status: str
+    output_result: dict = Field(default_factory=dict)
+    error_message: str = ""
+    requires_approval: bool = False
+    executed: bool = False
+    latency_ms: int = 0

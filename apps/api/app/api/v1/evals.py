@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.schemas.evaluation import EvaluationOut, EvalRunRequest
+from app.schemas.evaluation import EvaluationOut, EvalRunRequest, EvaluationUpdate
 from app.schemas.common import DataResponse, ListResponse
 from app.services import evals as svc
 
@@ -26,5 +26,13 @@ def run_evaluation(project_id: str, body: EvalRunRequest, db: Session = Depends(
 def get_evaluation(project_id: str, eval_id: str, db: Session = Depends(get_db)):
     eval_obj = svc.get_evaluation(db, eval_id)
     if not eval_obj or eval_obj.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Evaluation not found")
+    return DataResponse(data=eval_obj)
+
+
+@router.patch("/{eval_id}", response_model=DataResponse[EvaluationOut])
+def update_evaluation(project_id: str, eval_id: str, body: EvaluationUpdate, db: Session = Depends(get_db)):
+    eval_obj = svc.update_evaluation_review(db, project_id, eval_id, body)
+    if not eval_obj:
         raise HTTPException(status_code=404, detail="Evaluation not found")
     return DataResponse(data=eval_obj)

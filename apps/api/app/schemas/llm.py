@@ -30,7 +30,23 @@ class EmbeddingResult(BaseModel):
     error: Optional[str] = None
 
 
+class ProviderReadiness(BaseModel):
+    provider: str
+    model: str
+    active_provider: str
+    active_model: str
+    mode: str
+    configured: bool
+    required_env_vars: list[str] = Field(default_factory=list)
+    missing_env_vars: list[str] = Field(default_factory=list)
+    fallback_reason: Optional[str] = None
+    supports_custom_base_url: bool = False
+    base_url_custom: bool = False
+
+
 class ProviderStatus(BaseModel):
+    llm: ProviderReadiness
+    embedding: ProviderReadiness
     llm_provider: str
     llm_model: str
     llm_mode: str

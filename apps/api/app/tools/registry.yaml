@@ -2,7 +2,7 @@ tools:
   - name: rag_search
     display_name: RAG Search
     category: retrieval
-    description: 在项目文档中检索相关信息
+    description: Search indexed project document chunks.
     risk_level: low
     requires_approval: false
     timeout_seconds: 10
@@ -17,7 +17,7 @@ tools:
   - name: memory_search
     display_name: Memory Search
     category: retrieval
-    description: 搜索项目记忆库中的相关信息
+    description: Search active project memories.
     risk_level: low
     requires_approval: false
     timeout_seconds: 10
@@ -32,7 +32,7 @@ tools:
   - name: output_writer
     display_name: Output Writer
     category: generation
-    description: 保存 Agent 生成的产物
+    description: Persist an agent-generated output artifact.
     risk_level: low
     requires_approval: false
     timeout_seconds: 30
@@ -43,11 +43,15 @@ tools:
           type: string
         output_type:
           type: string
+        title:
+          type: string
+        content:
+          type: string
 
   - name: file_reader
     display_name: File Reader
     category: file
-    description: 读取本地文件系统
+    description: Read from an allowed document source.
     risk_level: medium
     requires_approval: false
     timeout_seconds: 30
@@ -55,7 +59,7 @@ tools:
   - name: file_writer
     display_name: File Writer
     category: file
-    description: 写入本地文件系统
+    description: Write to the local file system.
     risk_level: high
     requires_approval: true
     timeout_seconds: 30
@@ -63,7 +67,7 @@ tools:
   - name: web_search
     display_name: Web Search
     category: retrieval
-    description: 搜索互联网信息
+    description: Search external web sources.
     risk_level: medium
     requires_approval: false
     timeout_seconds: 20
@@ -71,7 +75,7 @@ tools:
   - name: social_trend_scan
     display_name: Social Trend Scan
     category: retrieval
-    description: 围绕用户主题扫描小红书、抖音、X/Twitter、论坛等社交平台的热点信号
+    description: Build a social trend scan scaffold from known platform signals.
     risk_level: medium
     requires_approval: false
     timeout_seconds: 30
@@ -79,7 +83,7 @@ tools:
   - name: code_executor
     display_name: Code Executor
     category: execution
-    description: 执行代码片段
+    description: Execute code snippets.
     risk_level: high
     requires_approval: true
     timeout_seconds: 60
@@ -87,7 +91,7 @@ tools:
   - name: database_write
     display_name: Database Write
     category: database
-    description: 写入数据库
+    description: Write directly to the database.
     risk_level: high
     requires_approval: true
     timeout_seconds: 30
@@ -95,7 +99,7 @@ tools:
   - name: embedding_generator
     display_name: Embedding Generator
     category: ai
-    description: 生成文本嵌入向量
+    description: Generate text embeddings.
     risk_level: low
     requires_approval: false
     timeout_seconds: 15
@@ -103,7 +107,7 @@ tools:
   - name: code_analyzer
     display_name: Code Analyzer
     category: analysis
-    description: 分析代码质量和结构
+    description: Analyze code structure and quality.
     risk_level: low
     requires_approval: false
     timeout_seconds: 30
@@ -111,7 +115,7 @@ tools:
   - name: pdf_parser
     display_name: PDF Parser
     category: parsing
-    description: 解析 PDF 文件内容
+    description: Parse PDF document content.
     risk_level: low
     requires_approval: false
     timeout_seconds: 30
@@ -119,7 +123,7 @@ tools:
   - name: document_reader
     display_name: Document Reader
     category: file
-    description: 读取文档内容
+    description: Read project document content.
     risk_level: low
     requires_approval: false
     timeout_seconds: 15

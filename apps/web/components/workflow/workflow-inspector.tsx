@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { api, type AgentRun, type TraceEvent } from '@/lib/api-client'
+import { api, type AgentRun, type TraceEvent, type WorkflowNodeState } from '@/lib/api-client'
 import {
   FileText,
   BarChart3,
@@ -18,9 +18,10 @@ interface WorkflowInspectorProps {
   nodeId: string
   nodeLabel: string
   run?: AgentRun
+  nodeState?: WorkflowNodeState
 }
 
-export function WorkflowInspector({ projectId, nodeId, nodeLabel, run }: WorkflowInspectorProps) {
+export function WorkflowInspector({ projectId, nodeId, nodeLabel, run, nodeState }: WorkflowInspectorProps) {
   const { data: traceData } = useQuery({
     queryKey: ['run-trace', projectId, run?.id],
     queryFn: () => api.trace.listRunTrace(projectId, run!.id),
@@ -44,9 +45,27 @@ export function WorkflowInspector({ projectId, nodeId, nodeLabel, run }: Workflo
           <p className="text-sm text-muted-foreground">{nodeLabel}</p>
         </div>
         <Card>
-          <CardContent className="p-6 text-center">
-            <Clock className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
-            <p className="text-sm text-muted-foreground">该节点尚未执行</p>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">状态</span>
+              <Badge variant={nodeState?.status === 'failed' ? 'destructive' : 'secondary'}>
+                {nodeState?.status || 'pending'}
+              </Badge>
+            </div>
+            {nodeState?.output_summary ? (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">产物摘要</p>
+                <p className="text-sm leading-relaxed">{nodeState.output_summary}</p>
+              </div>
+            ) : (
+              <div className="text-center py-3">
+                <Clock className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                <p className="text-sm text-muted-foreground">该节点尚未执行</p>
+              </div>
+            )}
+            {nodeState?.error_message && (
+              <p className="text-xs text-error">{nodeState.error_message}</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -78,7 +97,7 @@ export function WorkflowInspector({ projectId, nodeId, nodeLabel, run }: Workflo
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">耗时</span>
-            <span className="text-xs">{run.latency_ms}ms</span>
+            <span className="text-xs">{nodeState?.latency_ms || run.latency_ms}ms</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Token</span>
@@ -100,6 +119,20 @@ export function WorkflowInspector({ projectId, nodeId, nodeLabel, run }: Workflo
             <p className="text-xs text-muted-foreground line-clamp-3 mt-1">
               {String((run.generated_output as Record<string, string>).content || '').slice(0, 200)}
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {nodeState?.output_summary && (
+        <Card>
+          <CardHeader className="p-3 pb-2">
+            <CardTitle className="text-xs flex items-center gap-1">
+              <FileText className="h-3 w-3" />
+              节点产物摘要
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 pt-0">
+            <p className="text-xs leading-relaxed text-muted-foreground">{nodeState.output_summary}</p>
           </CardContent>
         </Card>
       )}

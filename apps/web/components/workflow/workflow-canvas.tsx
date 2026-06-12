@@ -19,7 +19,7 @@ import { useTheme } from 'next-themes'
 import { WORKFLOW_NODES, WORKFLOW_EDGES } from './workflow-data'
 import { WorkflowNode, type WorkflowNodeData } from './workflow-node'
 import { WorkflowInspector } from './workflow-inspector'
-import type { AgentRun, WorkflowStatus } from '@/lib/api-client'
+import type { AgentRun, WorkflowNodeState, WorkflowStatus } from '@/lib/api-client'
 
 interface WorkflowCanvasProps {
   projectId: string
@@ -30,6 +30,14 @@ interface WorkflowCanvasProps {
 export function WorkflowCanvas({ projectId, runs, workflowStatus }: WorkflowCanvasProps) {
   const { theme } = useTheme()
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+
+  const runById = useMemo(() => {
+    const map = new Map<string, AgentRun>()
+    runs.forEach((run) => {
+      map.set(run.id, run)
+    })
+    return map
+  }, [runs])
 
   const runBySkill = useMemo(() => {
     const map = new Map<string, AgentRun>()
@@ -42,12 +50,10 @@ export function WorkflowCanvas({ projectId, runs, workflowStatus }: WorkflowCanv
   }, [runs])
 
   const workflowNodeMap = useMemo(() => {
-    const map = new Map<string, string>()
+    const map = new Map<string, WorkflowNodeState>()
     if (workflowStatus?.nodes) {
       workflowStatus.nodes.forEach((n) => {
-        if (n.skill) {
-          map.set(n.skill, n.status)
-        }
+        map.set(n.stage_id, n)
       })
     }
     return map
@@ -55,13 +61,14 @@ export function WorkflowCanvas({ projectId, runs, workflowStatus }: WorkflowCanv
 
   const getNodeStatus = useCallback(
     (nodeId: string): 'pending' | 'running' | 'success' | 'failed' => {
-      const wfStatus = workflowNodeMap.get(nodeId)
-      if (wfStatus) {
-        if (wfStatus === 'success') return 'success'
-        if (wfStatus === 'failed') return 'failed'
-        if (wfStatus === 'running' || wfStatus === 'waiting_approval') return 'running'
+      const workflowNode = workflowNodeMap.get(nodeId)
+      if (workflowNode) {
+        if (workflowNode.status === 'success') return 'success'
+        if (workflowNode.status === 'failed') return 'failed'
+        if (workflowNode.status === 'running' || workflowNode.status === 'waiting_approval') return 'running'
       }
-      const run = runBySkill.get(nodeId)
+      const staticNode = WORKFLOW_NODES.find((node) => node.id === nodeId)
+      const run = staticNode?.skill ? runBySkill.get(staticNode.skill) : undefined
       if (!run) return 'pending'
       if (run.status === 'completed') return 'success'
       if (run.status === 'failed') return 'failed'
@@ -88,17 +95,20 @@ export function WorkflowCanvas({ projectId, runs, workflowStatus }: WorkflowCanv
           y: row * ySpacing + 50,
         },
         data: {
-          label: node.label,
-          agent: node.agent,
+          label: workflowNodeMap.get(node.id)?.label || node.label,
+          agent: workflowNodeMap.get(node.id)?.agent || node.agent,
           skill: node.skill,
           icon: node.icon,
           status: getNodeStatus(node.id),
-          run: node.skill ? runBySkill.get(node.skill) : undefined,
+          run: workflowNodeMap.get(node.id)?.run_id
+            ? runById.get(workflowNodeMap.get(node.id)!.run_id!)
+            : node.skill ? runBySkill.get(node.skill) : undefined,
+          outputSummary: workflowNodeMap.get(node.id)?.output_summary || '',
           isSelected: selectedNodeId === node.id,
         },
       }
     })
-  }, [runBySkill, getNodeStatus, selectedNodeId])
+  }, [runById, runBySkill, workflowNodeMap, getNodeStatus, selectedNodeId])
 
   const initialEdges: Edge[] = useMemo(
     () =>
@@ -134,9 +144,12 @@ export function WorkflowCanvas({ projectId, runs, workflowStatus }: WorkflowCanv
   const selectedNode = selectedNodeId
     ? WORKFLOW_NODES.find((n) => n.id === selectedNodeId)
     : null
-  const selectedRun = selectedNode?.skill
-    ? runBySkill.get(selectedNode.skill)
-    : undefined
+  const selectedWorkflowNode = selectedNodeId ? workflowNodeMap.get(selectedNodeId) : undefined
+  const selectedRun = selectedWorkflowNode?.run_id
+    ? runById.get(selectedWorkflowNode.run_id)
+    : selectedNode?.skill
+      ? runBySkill.get(selectedNode.skill)
+      : undefined
 
   const isDark = theme === 'dark'
 
@@ -181,8 +194,9 @@ export function WorkflowCanvas({ projectId, runs, workflowStatus }: WorkflowCanv
           <WorkflowInspector
             projectId={projectId}
             nodeId={selectedNodeId}
-            nodeLabel={selectedNode.label}
+            nodeLabel={selectedWorkflowNode?.label || selectedNode.label}
             run={selectedRun}
+            nodeState={selectedWorkflowNode}
           />
         </div>
       )}

@@ -1,42 +1,40 @@
 'use client'
 
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { type ReactNode, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { toast } from '@/components/ui/use-toast'
-import { api, type Evaluation } from '@/lib/api-client'
-import { 
-  Loader2, 
-  BarChart3, 
-  CheckCircle2, 
-  XCircle, 
-  Shield, 
-  ChevronDown, 
-  ChevronUp, 
-  Lightbulb, 
-  AlertTriangle, 
-  Target,
-  TrendingUp,
-  TrendingDown,
-  Minus,
+import {
   Activity,
-  Zap
+  AlertTriangle,
+  BarChart3,
+  CheckCircle2,
+  ClipboardCheck,
+  FileText,
+  Lightbulb,
+  Loader2,
+  RefreshCw,
+  ShieldAlert,
+  Sparkles,
+  Target,
+  XCircle,
 } from 'lucide-react'
 
-const DIMENSION_ICONS: Record<string, React.ElementType> = {
-  correctness: CheckCircle2,
-  completeness: Target,
-  feasibility: Zap,
-  innovation: Lightbulb,
-  engineering_quality: Activity,
-  citation_quality: Shield,
-}
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Textarea } from '@/components/ui/textarea'
+import { toast } from '@/components/ui/use-toast'
+import {
+  api,
+  type AgentRun,
+  type Evaluation,
+  type EvaluationDimension,
+  type EvaluationStatus,
+  type Output,
+} from '@/lib/api-client'
 
 const DIMENSION_LABELS: Record<string, string> = {
-  correctness: '正确性',
+  correctness: '准确性',
   completeness: '完整性',
   feasibility: '可行性',
   innovation: '创新性',
@@ -44,285 +42,421 @@ const DIMENSION_LABELS: Record<string, string> = {
   citation_quality: '引用质量',
 }
 
-function getScoreColor(score: number): string {
-  if (score >= 80) return 'text-emerald-500'
-  if (score >= 60) return 'text-amber-500'
-  return 'text-red-500'
+const STATUS_OPTIONS: Array<{ value: EvaluationStatus; label: string; icon: typeof CheckCircle2 }> = [
+  { value: 'pending', label: '待评审', icon: Activity },
+  { value: 'pass', label: '通过', icon: CheckCircle2 },
+  { value: 'needs_revision', label: '需修改', icon: AlertTriangle },
+  { value: 'accepted', label: '接受', icon: ClipboardCheck },
+  { value: 'fail', label: '不通过', icon: XCircle },
+]
+
+type ReviewItem = {
+  key: string
+  output: Output | null
+  run: AgentRun | null
+  evaluation: Evaluation | null
 }
 
-function getScoreBgColor(score: number): string {
+function scoreTone(score: number) {
+  if (score >= 80) return 'text-emerald-600 dark:text-emerald-400'
+  if (score >= 60) return 'text-amber-600 dark:text-amber-400'
+  return 'text-red-600 dark:text-red-400'
+}
+
+function scoreBar(score: number) {
   if (score >= 80) return 'bg-emerald-500'
   if (score >= 60) return 'bg-amber-500'
   return 'bg-red-500'
 }
 
-function getScoreTrend(score: number): React.ReactNode {
-  if (score >= 80) return <TrendingUp className="h-4 w-4 text-emerald-500" />
-  if (score >= 60) return <Minus className="h-4 w-4 text-amber-500" />
-  return <TrendingDown className="h-4 w-4 text-red-500" />
+function statusBadge(status: EvaluationStatus): 'success' | 'warning' | 'destructive' | 'outline' {
+  if (status === 'pass' || status === 'accepted') return 'success'
+  if (status === 'needs_revision') return 'warning'
+  if (status === 'fail') return 'destructive'
+  return 'outline'
+}
+
+function resultBadge(result: string): 'success' | 'destructive' | 'outline' {
+  if (result === 'pass') return 'success'
+  if (result === 'fail') return 'destructive'
+  return 'outline'
+}
+
+function statusLabel(status: string) {
+  return STATUS_OPTIONS.find((item) => item.value === status)?.label || status
+}
+
+function getRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function getString(value: unknown, fallback = '') {
+  return typeof value === 'string' && value.trim() ? value : fallback
+}
+
+function getDimensions(evaluation: Evaluation): EvaluationDimension[] {
+  const fromMeta = evaluation.metadata_?.dimensions
+  if (Array.isArray(fromMeta) && fromMeta.length > 0) {
+    return fromMeta.map((dimension) => ({
+      name: dimension.name,
+      score: Number(dimension.score || 0),
+      reason: dimension.reason,
+    }))
+  }
+
+  return Object.entries(evaluation.rubric || {}).map(([name, score]) => ({
+    name,
+    score: Number(score || 0),
+  }))
+}
+
+function getList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.length > 0) : []
+}
+
+function outputTitle(item: ReviewItem) {
+  if (item.output) return item.output.title
+  const generated = getRecord(item.run?.generated_output)
+  return getString(generated.title, 'Agent 运行产物')
+}
+
+function outputType(item: ReviewItem) {
+  if (item.output) return item.output.output_type
+  const generated = getRecord(item.run?.generated_output)
+  return getString(generated.type, 'run')
 }
 
 export default function EvalsPage() {
   const params = useParams()
   const projectId = params.projectId as string
   const queryClient = useQueryClient()
-  const [expandedEval, setExpandedEval] = useState<string | null>(null)
+  const [draftNotes, setDraftNotes] = useState<Record<string, string>>({})
 
-  const { data, isLoading } = useQuery({
+  const evalsQuery = useQuery({
     queryKey: ['evaluations', projectId],
     queryFn: () => api.evals.list(projectId),
     enabled: !!projectId,
   })
 
-  const evals = data?.data || []
+  const outputsQuery = useQuery({
+    queryKey: ['outputs', projectId],
+    queryFn: () => api.outputs.list(projectId),
+    enabled: !!projectId,
+  })
 
-  const avgScore = evals.length > 0
-    ? evals.reduce((sum, e) => sum + e.score, 0) / evals.length
+  const runsQuery = useQuery({
+    queryKey: ['agent-runs', projectId],
+    queryFn: () => api.agents.listRuns(projectId),
+    enabled: !!projectId,
+  })
+
+  const runEvalMutation = useMutation({
+    mutationFn: (agentRunId: string) => api.evals.run(projectId, agentRunId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['evaluations', projectId] })
+      toast({ title: '评估已完成' })
+    },
+    onError: (error: Error) => {
+      toast({ title: '评估失败', description: error.message, variant: 'destructive' })
+    },
+  })
+
+  const updateReviewMutation = useMutation({
+    mutationFn: ({ evalId, status, review_note }: { evalId: string; status?: EvaluationStatus; review_note?: string }) =>
+      api.evals.update(projectId, evalId, { status, review_note }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['evaluations', projectId] })
+      toast({ title: '评审状态已更新' })
+    },
+    onError: (error: Error) => {
+      toast({ title: '更新失败', description: error.message, variant: 'destructive' })
+    },
+  })
+
+  const evaluations = evalsQuery.data?.data || []
+  const outputs = outputsQuery.data?.data || []
+  const runs = runsQuery.data?.data || []
+  const isLoading = evalsQuery.isLoading || outputsQuery.isLoading || runsQuery.isLoading
+
+  const reviewItems = useMemo<ReviewItem[]>(() => {
+    const evalByRun = new Map(evaluations.map((evaluation) => [evaluation.agent_run_id, evaluation]))
+    const runById = new Map(runs.map((run) => [run.id, run]))
+    const outputRunIds = new Set<string>()
+
+    const outputItems = outputs.map((output) => {
+      if (output.agent_run_id) outputRunIds.add(output.agent_run_id)
+      const run = output.agent_run_id ? runById.get(output.agent_run_id) || null : null
+      const evaluation = output.agent_run_id ? evalByRun.get(output.agent_run_id) || null : null
+      return { key: `output-${output.id}`, output, run, evaluation }
+    })
+
+    const runOnlyItems = runs
+      .filter((run) => !outputRunIds.has(run.id) && evalByRun.has(run.id))
+      .map((run) => ({
+        key: `run-${run.id}`,
+        output: null,
+        run,
+        evaluation: evalByRun.get(run.id) || null,
+      }))
+
+    return [...outputItems, ...runOnlyItems]
+  }, [evaluations, outputs, runs])
+
+  const evaluatedItems = reviewItems.filter((item) => item.evaluation)
+  const averageScore = evaluatedItems.length
+    ? evaluatedItems.reduce((sum, item) => sum + (item.evaluation?.score || 0), 0) / evaluatedItems.length
     : 0
-
-  const passRate = evals.length > 0
-    ? (evals.filter(e => e.result === 'pass').length / evals.length) * 100
-    : 0
-
-  const getEvalMeta = (ev: Evaluation) => {
-    const meta = (ev as unknown as Record<string, unknown>).metadata_ as Record<string, unknown> | undefined
-    return meta || {}
-  }
+  const pendingCount = evaluatedItems.filter((item) => item.evaluation?.status === 'pending').length
+  const revisionCount = evaluatedItems.filter((item) => item.evaluation?.status === 'needs_revision').length
+  const acceptedCount = evaluatedItems.filter((item) => ['pass', 'accepted'].includes(item.evaluation?.status || '')).length
 
   return (
-    <div className="p-6 max-w-6xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">评估</h1>
-        <p className="text-sm text-muted-foreground mt-1">智能体运行的多维度评估结果</p>
+    <div className="max-w-7xl space-y-6 p-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-normal">产物质量评审中心</h1>
+          <p className="mt-1 text-sm text-muted-foreground">按产物和 Agent 运行汇总自动评分、风险建议和人工评审状态</p>
+        </div>
+        <Badge variant="outline" className="w-fit">
+          <ShieldAlert className="mr-1.5 h-3.5 w-3.5" />
+          {evaluations.length} 条评估记录
+        </Badge>
       </div>
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+      {isLoading ? (
+        <div className="flex min-h-80 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      )}
-
-      {!isLoading && (
+      ) : (
         <>
-          {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Card>
               <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-muted-foreground">平均评分</p>
-                  {getScoreTrend(avgScore)}
+                <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
+                  <span>平均质量分</span>
+                  <BarChart3 className="h-4 w-4" />
                 </div>
-                <p className={`text-4xl font-bold ${getScoreColor(avgScore)}`}>
-                  {avgScore.toFixed(1)}
-                </p>
-                <div className="w-full bg-muted/30 rounded-full h-2 mt-3">
-                  <div
-                    className={`h-2 rounded-full transition-all ${getScoreBgColor(avgScore)}`}
-                    style={{ width: `${avgScore}%` }}
-                  />
+                <div className={`text-3xl font-bold ${scoreTone(averageScore)}`}>{averageScore.toFixed(1)}</div>
+                <div className="mt-3 h-2 w-full rounded-full bg-muted">
+                  <div className={`h-2 rounded-full ${scoreBar(averageScore)}`} style={{ width: `${Math.min(averageScore, 100)}%` }} />
                 </div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-muted-foreground">通过率</p>
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
+                  <span>待人工评审</span>
+                  <Activity className="h-4 w-4" />
                 </div>
-                <p className={`text-4xl font-bold ${passRate >= 80 ? 'text-emerald-500' : passRate >= 60 ? 'text-amber-500' : 'text-red-500'}`}>
-                  {passRate.toFixed(0)}%
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {evals.filter(e => e.result === 'pass').length}/{evals.length} 通过
-                </p>
+                <div className="text-3xl font-bold">{pendingCount}</div>
+                <p className="mt-1 text-xs text-muted-foreground">自动评估完成但尚未确认</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-muted-foreground">评估总数</p>
-                  <BarChart3 className="h-4 w-4 text-violet-500" />
+                <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
+                  <span>需修改</span>
+                  <AlertTriangle className="h-4 w-4" />
                 </div>
-                <p className="text-4xl font-bold">{evals.length}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Agent 运行评估记录
-                </p>
+                <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{revisionCount}</div>
+                <p className="mt-1 text-xs text-muted-foreground">已标记需要返工的产物</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-5">
+                <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
+                  <span>通过/接受</span>
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+                <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{acceptedCount}</div>
+                <p className="mt-1 text-xs text-muted-foreground">可进入下一步交付的产物</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Evaluations List */}
-          {evals.length === 0 ? (
+          {reviewItems.length === 0 ? (
             <Card>
-              <CardContent className="p-12 text-center">
-                <BarChart3 className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">暂无评估</h3>
-                <p className="text-muted-foreground">智能体运行完成后会自动生成评估</p>
+              <CardContent className="flex min-h-72 flex-col items-center justify-center p-10 text-center">
+                <FileText className="mb-4 h-12 w-12 text-muted-foreground/50" />
+                <h2 className="text-lg font-semibold">暂无可评审产物</h2>
+                <p className="mt-2 max-w-md text-sm text-muted-foreground">Agent 生成产物后，这里会显示自动评分和人工评审入口。</p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-4">
-              {evals.map((ev) => {
-                const meta = getEvalMeta(ev)
-                const isExpanded = expandedEval === ev.id
-                const dimensions = (meta.dimensions as Array<{ name: string; score: number; reason: string }>) || []
-                const strengths = (meta.strengths as string[]) || []
-                const weaknesses = (meta.weaknesses as string[]) || []
-                const risks = (meta.risks as string[]) || []
-                const actionItems = (meta.action_items as string[]) || []
-                const evalMode = (meta.mode as string) || 'unknown'
-                const evalProvider = (meta.provider as string) || 'unknown'
+              {reviewItems.map((item) => {
+                const evaluation = item.evaluation
+                const runId = item.run?.id || item.output?.agent_run_id || ''
+                const dimensions = evaluation ? getDimensions(evaluation) : []
+                const strengths = evaluation ? getList(evaluation.metadata_?.strengths) : []
+                const weaknesses = evaluation ? getList(evaluation.metadata_?.weaknesses) : []
+                const actionItems = evaluation ? getList(evaluation.metadata_?.action_items) : []
+                const risks = evaluation ? [...evaluation.risks, ...weaknesses] : []
+                const noteValue = evaluation ? draftNotes[evaluation.id] ?? evaluation.review_note ?? '' : ''
+                const provider = evaluation?.metadata_?.provider || 'rule'
+                const mode = evaluation?.metadata_?.mode || 'rule_based'
 
                 return (
-                  <Card key={ev.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-5">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-4">
-                          <div className={`h-14 w-14 rounded-xl flex items-center justify-center ${ev.score >= 70 ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
-                            <span className={`text-2xl font-bold ${getScoreColor(ev.score)}`}>
-                              {ev.score.toFixed(0)}
-                            </span>
+                  <Card key={item.key}>
+                    <CardHeader className="pb-4">
+                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                        <div className="min-w-0">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <Badge variant="secondary">{outputType(item)}</Badge>
+                            {item.run?.agent_name && <Badge variant="outline">{item.run.agent_name}</Badge>}
+                            {item.run?.status && <Badge variant="outline">运行 {item.run.status}</Badge>}
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant={ev.result === 'pass' ? 'success' : 'destructive'}>
-                                {ev.result === 'pass' ? '通过' : '未通过'}
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                <Shield className="h-3 w-3 mr-1" />
-                                {evalMode}
-                              </Badge>
-                              {evalProvider !== 'unknown' && (
-                                <Badge variant="outline" className="text-xs">
-                                  {evalProvider}
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {new Date(ev.created_at).toLocaleString('zh-CN')}
-                            </p>
-                          </div>
+                          <CardTitle className="break-words text-xl">{outputTitle(item)}</CardTitle>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {runId ? `Run ${runId}` : '无关联 Agent Run'}
+                          </p>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setExpandedEval(isExpanded ? null : ev.id)}
-                        >
-                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                        </Button>
+
+                        {evaluation ? (
+                          <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border bg-muted/20">
+                              <span className={`text-2xl font-bold ${scoreTone(evaluation.score)}`}>{evaluation.score.toFixed(0)}</span>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap gap-2">
+                                <Badge variant={resultBadge(evaluation.result)}>自动 {evaluation.result === 'pass' ? '通过' : evaluation.result === 'fail' ? '未通过' : evaluation.result}</Badge>
+                                <Badge variant={statusBadge(evaluation.status)}>人工 {statusLabel(evaluation.status)}</Badge>
+                              </div>
+                              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                <span>{String(mode)}</span>
+                                <span>{String(provider)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <Button
+                            onClick={() => runId && runEvalMutation.mutate(runId)}
+                            disabled={!runId || runEvalMutation.isPending}
+                          >
+                            {runEvalMutation.isPending ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                            )}
+                            运行评估
+                          </Button>
+                        )}
                       </div>
+                    </CardHeader>
 
-                      {/* Dimensions Grid */}
-                      {dimensions.length > 0 && (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-                          {dimensions.map((dim) => {
-                            const Icon = DIMENSION_ICONS[dim.name] || BarChart3
-                            const label = DIMENSION_LABELS[dim.name] || dim.name
-                            return (
-                              <div key={dim.name} className="p-3 rounded-lg bg-muted/10 hover:bg-muted/20 transition-colors">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Icon className="h-4 w-4 text-violet-500" />
-                                  <p className="text-xs text-muted-foreground">{label}</p>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <p className={`text-xl font-bold ${getScoreColor(dim.score)}`}>
-                                    {dim.score}
-                                  </p>
-                                  {getScoreTrend(dim.score)}
-                                </div>
-                                <div className="w-full bg-muted/30 rounded-full h-1.5 mt-2">
-                                  <div
-                                    className={`h-1.5 rounded-full transition-all ${getScoreBgColor(dim.score)}`}
-                                    style={{ width: `${dim.score}%` }}
-                                  />
-                                </div>
-                                {dim.reason && (
-                                  <p className="text-[10px] text-muted-foreground mt-1.5">{dim.reason}</p>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-
-                      {/* Rubric fallback */}
-                      {ev.rubric && Object.keys(ev.rubric).length > 0 && dimensions.length === 0 && (
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-                          {Object.entries(ev.rubric).map(([key, value]) => (
-                            <div key={key} className="p-3 rounded-lg bg-muted/10 text-center">
-                              <p className="text-xs text-muted-foreground mb-1">{key}</p>
-                              <p className={`text-xl font-bold ${getScoreColor(Number(value))}`}>{String(value)}</p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {ev.feedback && (
-                        <p className="text-sm text-muted-foreground mb-4 p-3 rounded-lg bg-muted/10">
-                          {ev.feedback}
-                        </p>
-                      )}
-
-                      {/* Expanded Details */}
-                      {isExpanded && (
-                        <div className="space-y-4 border-t border-border/30 pt-4">
-                          {strengths.length > 0 && (
-                            <div>
-                              <p className="text-sm font-semibold mb-2 flex items-center gap-2">
-                                <Lightbulb className="h-4 w-4 text-amber-500" />
-                                优点
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {strengths.map((s, i) => (
-                                  <Badge key={i} variant="success" className="text-xs">{s}</Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {weaknesses.length > 0 && (
-                            <div>
-                              <p className="text-sm font-semibold mb-2 flex items-center gap-2">
-                                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                                不足
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {weaknesses.map((w, i) => (
-                                  <Badge key={i} variant="warning" className="text-xs">{w}</Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {risks.length > 0 && (
-                            <div>
-                              <p className="text-sm font-semibold mb-2 flex items-center gap-2">
-                                <AlertTriangle className="h-4 w-4 text-red-500" />
-                                风险项
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {risks.map((risk, i) => (
-                                  <Badge key={i} variant="destructive" className="text-xs">{risk}</Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {actionItems.length > 0 && (
-                            <div>
-                              <p className="text-sm font-semibold mb-2 flex items-center gap-2">
-                                <Target className="h-4 w-4 text-blue-500" />
-                                改进建议
-                              </p>
-                              <div className="space-y-2">
-                                {actionItems.map((item, i) => (
-                                  <div key={i} className="text-sm p-3 rounded-lg bg-muted/10 border-l-2 border-blue-500">
-                                    {item}
+                    <CardContent className="space-y-5">
+                      {evaluation ? (
+                        <>
+                          {dimensions.length > 0 && (
+                            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                              {dimensions.map((dimension) => {
+                                const score = Math.max(0, Math.min(Number(dimension.score || 0), 100))
+                                return (
+                                  <div key={dimension.name} className="rounded-md border bg-background p-3">
+                                    <div className="mb-2 flex items-center justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <p className="truncate text-sm font-medium">{DIMENSION_LABELS[dimension.name] || dimension.name}</p>
+                                        {dimension.reason && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{dimension.reason}</p>}
+                                      </div>
+                                      <span className={`shrink-0 text-lg font-semibold ${scoreTone(score)}`}>{score.toFixed(0)}</span>
+                                    </div>
+                                    <div className="h-2 w-full rounded-full bg-muted">
+                                      <div className={`h-2 rounded-full ${scoreBar(score)}`} style={{ width: `${score}%` }} />
+                                    </div>
                                   </div>
-                                ))}
-                              </div>
+                                )
+                              })}
                             </div>
                           )}
+
+                          {evaluation.feedback && (
+                            <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
+                              {evaluation.feedback}
+                            </div>
+                          )}
+
+                          <div className="grid gap-4 lg:grid-cols-3">
+                            <ReviewList
+                              title="优势"
+                              icon={<Sparkles className="h-4 w-4 text-emerald-500" />}
+                              items={strengths}
+                              empty="暂无突出优势"
+                              variant="success"
+                            />
+                            <ReviewList
+                              title="风险"
+                              icon={<AlertTriangle className="h-4 w-4 text-red-500" />}
+                              items={risks}
+                              empty="暂无风险项"
+                              variant="destructive"
+                            />
+                            <ReviewList
+                              title="改进建议"
+                              icon={<Lightbulb className="h-4 w-4 text-blue-500" />}
+                              items={actionItems}
+                              empty="暂无改进建议"
+                              variant="info"
+                            />
+                          </div>
+
+                          <div className="grid gap-4 border-t pt-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+                            <div>
+                              <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                                <Target className="h-4 w-4" />
+                                人工评审状态
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {STATUS_OPTIONS.map((option) => {
+                                  const Icon = option.icon
+                                  return (
+                                    <Button
+                                      key={option.value}
+                                      type="button"
+                                      size="sm"
+                                      variant={evaluation.status === option.value ? 'default' : 'outline'}
+                                      onClick={() => updateReviewMutation.mutate({
+                                        evalId: evaluation.id,
+                                        status: option.value,
+                                        review_note: noteValue,
+                                      })}
+                                      disabled={updateReviewMutation.isPending}
+                                    >
+                                      <Icon className="mr-1.5 h-3.5 w-3.5" />
+                                      {option.label}
+                                    </Button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Textarea
+                                value={noteValue}
+                                onChange={(event) => setDraftNotes((current) => ({
+                                  ...current,
+                                  [evaluation.id]: event.target.value,
+                                }))}
+                                placeholder="评审备注"
+                                className="min-h-24 resize-none"
+                              />
+                              <div className="flex justify-end">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateReviewMutation.mutate({
+                                    evalId: evaluation.id,
+                                    review_note: noteValue,
+                                  })}
+                                  disabled={updateReviewMutation.isPending}
+                                >
+                                  保存备注
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="rounded-md border border-dashed p-5 text-sm text-muted-foreground">
+                          {runId ? '该产物尚未生成评估，可直接运行质量评审。' : '该产物没有关联 Agent Run，暂不能自动评估。'}
                         </div>
                       )}
                     </CardContent>
@@ -332,6 +466,40 @@ export default function EvalsPage() {
             </div>
           )}
         </>
+      )}
+    </div>
+  )
+}
+
+function ReviewList({
+  title,
+  icon,
+  items,
+  empty,
+  variant,
+}: {
+  title: string
+  icon: ReactNode
+  items: string[]
+  empty: string
+  variant: 'success' | 'destructive' | 'info'
+}) {
+  return (
+    <div className="rounded-md border p-4">
+      <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+        {icon}
+        {title}
+      </div>
+      {items.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {items.map((item, index) => (
+            <Badge key={`${item}-${index}`} variant={variant} className="max-w-full whitespace-normal leading-relaxed">
+              {item}
+            </Badge>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">{empty}</p>
       )}
     </div>
   )

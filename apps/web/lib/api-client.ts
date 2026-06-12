@@ -2,7 +2,49 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 
 interface ApiError {
   error?: { code: string; message: string };
-  detail?: string;
+  detail?: string | { message?: string } | Array<{ msg?: string; message?: string }>;
+}
+
+export type UploadProgressHandler = (progress: number) => void;
+
+function getApiErrorMessage(body: ApiError, fallback: string): string {
+  const detail = body.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const firstMessage = detail.find((item) => item.msg || item.message);
+    if (firstMessage) return firstMessage.msg || firstMessage.message || fallback;
+  }
+  if (detail && typeof detail === "object" && !Array.isArray(detail) && detail.message) {
+    return detail.message;
+  }
+  return body.error?.message || fallback;
+}
+
+function getFilenameFromContentDisposition(header: string | null): string {
+  if (!header) return "";
+
+  const encoded = header.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded);
+    } catch {
+      return encoded;
+    }
+  }
+
+  const quoted = header.match(/filename="([^"]+)"/i)?.[1];
+  if (quoted) return quoted;
+
+  return header.match(/filename=([^;]+)/i)?.[1]?.trim() || "";
+}
+
+function ensureBlobText(blob: Blob, body: ArrayBuffer): Blob {
+  if (typeof blob.text === "function") return blob;
+
+  Object.defineProperty(blob, "text", {
+    value: async () => new TextDecoder().decode(body),
+  });
+  return blob;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -16,10 +58,33 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body: ApiError = await res.json().catch(() => ({}));
-    throw new Error(body.detail || body.error?.message || `API error: ${res.status}`);
+    throw new Error(getApiErrorMessage(body, `API error: ${res.status}`));
   }
 
   return res.json();
+}
+
+async function requestBlob(path: string, options?: RequestInit): Promise<OutputExportFile> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      ...options?.headers,
+    },
+  });
+
+  if (!res.ok) {
+    const body: ApiError = await res.json().catch(() => ({}));
+    throw new Error(getApiErrorMessage(body, `API error: ${res.status}`));
+  }
+
+  const contentType = res.headers.get("content-type") || "application/octet-stream";
+  const body = await res.arrayBuffer();
+  const blob = ensureBlobText(new Blob([body], { type: contentType }), body);
+  return {
+    blob,
+    filename: getFilenameFromContentDisposition(res.headers.get("content-disposition")),
+    contentType,
+  };
 }
 
 export const api = {
@@ -48,18 +113,45 @@ export const api = {
       request<{ data: Document[]; total: number }>(`/api/v1/projects/${projectId}/documents`),
     get: (projectId: string, docId: string) =>
       request<{ data: Document }>(`/api/v1/projects/${projectId}/documents/${docId}`),
-    upload: async (projectId: string, file: File) => {
+    upload: async (projectId: string, file: File, onProgress?: UploadProgressHandler) => {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(`${API_BASE}/api/v1/projects/${projectId}/documents/upload`, {
-        method: "POST",
-        body: formData,
+      return new Promise<{ data: Document }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${API_BASE}/api/v1/projects/${projectId}/documents/upload`);
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            onProgress?.(Math.round((event.loaded / event.total) * 100));
+          }
+        };
+
+        xhr.onload = () => {
+          const fallback = xhr.status >= 200 && xhr.status < 300
+            ? "{}"
+            : JSON.stringify({ detail: `Upload failed: ${xhr.status}` });
+          let body: ApiError | { data: Document };
+          try {
+            body = JSON.parse(xhr.responseText || fallback) as ApiError | { data: Document };
+          } catch {
+            body = { detail: `Upload failed: ${xhr.status}` };
+          }
+
+          if (xhr.status >= 200 && xhr.status < 300) {
+            onProgress?.(100);
+            resolve(body as { data: Document });
+            return;
+          }
+
+          reject(new Error(getApiErrorMessage(body as ApiError, `Upload failed: ${xhr.status}`)));
+        };
+
+        xhr.onerror = () => {
+          reject(new Error("Upload failed because the network connection was interrupted."));
+        };
+
+        xhr.send(formData);
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || `Upload failed: ${res.status}`);
-      }
-      return res.json() as Promise<{ data: Document }>;
     },
     delete: (projectId: string, docId: string) =>
       request<{ message: string }>(`/api/v1/projects/${projectId}/documents/${docId}`, {
@@ -152,6 +244,11 @@ export const api = {
       }),
     get: (projectId: string, evalId: string) =>
       request<{ data: Evaluation }>(`/api/v1/projects/${projectId}/evals/${evalId}`),
+    update: (projectId: string, evalId: string, data: EvaluationUpdate) =>
+      request<{ data: Evaluation }>(`/api/v1/projects/${projectId}/evals/${evalId}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
   },
   outputs: {
     list: (projectId: string) =>
@@ -172,6 +269,12 @@ export const api = {
       request<{ message: string }>(`/api/v1/projects/${projectId}/outputs/${outputId}`, {
         method: "DELETE",
       }),
+    download: (projectId: string, outputId: string, format: OutputExportFormat = "markdown") =>
+      requestBlob(`/api/v1/projects/${projectId}/outputs/${outputId}/download?format=${encodeURIComponent(format)}`),
+    export: (projectId: string, outputId: string, options: OutputExportOptions = {}) => {
+      const format = options.format || "markdown";
+      return requestBlob(`/api/v1/projects/${projectId}/outputs/${outputId}/export?format=${encodeURIComponent(format)}`);
+    },
   },
   runtime: {
     providers: () =>
@@ -201,10 +304,31 @@ export const api = {
       request<{ data: DashboardStats }>("/api/v1/dashboard/stats"),
   },
   prompts: {
-    list: () =>
-      request<{ data: PromptTemplate[]; total: number }>("/api/v1/prompts"),
+    list: (includeVersions = false) =>
+      request<{ data: PromptTemplate[]; total: number }>(`/api/v1/prompts?include_versions=${includeVersions}`),
     get: (name: string) =>
-      request<{ data: PromptTemplate }>(`/api/v1/prompts/${name}`),
+      request<{ data: PromptTemplate }>(`/api/v1/prompts/${encodeURIComponent(name)}`),
+    create: (data: PromptTemplateCreate) =>
+      request<{ data: PromptTemplate }>("/api/v1/prompts", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (name: string, data: PromptTemplateUpdate) =>
+      request<{ data: PromptTemplate }>(`/api/v1/prompts/${encodeURIComponent(name)}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    reload: () =>
+      request<{ data: PromptTemplate[]; total: number }>("/api/v1/prompts/reload", {
+        method: "POST",
+      }),
+    versions: (name: string) =>
+      request<{ data: PromptVersion[]; total: number }>(`/api/v1/prompts/${encodeURIComponent(name)}/versions`),
+    activate: (name: string, version: number, reason = "") =>
+      request<{ data: PromptTemplate }>(`/api/v1/prompts/${encodeURIComponent(name)}/versions/${version}/activate`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      }),
     stats: () =>
       request<{ data: PromptStats }>("/api/v1/prompts/stats"),
   },
@@ -254,6 +378,8 @@ export interface Document {
   summary: string;
   chunk_count: number;
   embedding_status: string;
+  error_message: string;
+  metadata_: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -379,8 +505,35 @@ export interface Evaluation {
   result: string;
   feedback: string;
   risks: string[];
+  status: EvaluationStatus;
+  review_note: string;
+  metadata_: EvaluationMetadata;
   created_at: string;
   updated_at: string;
+}
+
+export type EvaluationStatus = "pending" | "pass" | "fail" | "needs_revision" | "accepted";
+
+export interface EvaluationUpdate {
+  status?: EvaluationStatus;
+  review_note?: string;
+}
+
+export interface EvaluationDimension {
+  name: string;
+  score: number;
+  reason?: string;
+}
+
+export interface EvaluationMetadata {
+  mode?: string;
+  provider?: string;
+  model?: string;
+  strengths?: string[];
+  weaknesses?: string[];
+  action_items?: string[];
+  dimensions?: EvaluationDimension[];
+  [key: string]: unknown;
 }
 
 export interface Output {
@@ -390,9 +543,13 @@ export interface Output {
   output_type: string;
   title: string;
   content: string;
+  content_type: string;
+  language: string;
+  file_name: string;
   version: number;
   created_by_agent: string;
   status: string;
+  metadata_: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -401,17 +558,54 @@ export interface OutputCreate {
   output_type?: string;
   title: string;
   content?: string;
+  content_type?: string;
+  language?: string;
+  file_name?: string;
   created_by_agent?: string;
+  status?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface OutputUpdate {
   title?: string;
   content?: string;
   output_type?: string;
+  content_type?: string;
+  language?: string;
+  file_name?: string;
   status?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export type OutputExportFormat = "markdown";
+
+export interface OutputExportOptions {
+  format?: OutputExportFormat;
+}
+
+export interface OutputExportFile {
+  blob: Blob;
+  filename: string;
+  contentType: string;
+}
+
+export interface ProviderRuntimeStatus {
+  provider: string;
+  model: string;
+  active_provider: string;
+  active_model: string;
+  mode: string;
+  configured: boolean;
+  required_env_vars: string[];
+  missing_env_vars: string[];
+  fallback_reason: string | null;
+  supports_custom_base_url: boolean;
+  base_url_custom: boolean;
 }
 
 export interface ProviderStatus {
+  llm: ProviderRuntimeStatus;
+  embedding: ProviderRuntimeStatus;
   llm_provider: string;
   llm_model: string;
   llm_mode: string;
@@ -422,19 +616,46 @@ export interface ProviderStatus {
   embedding_configured: boolean;
 }
 
+export interface ApiDiagnostic {
+  ok: boolean;
+  status: string;
+  version: string;
+  environment: string;
+  host: string;
+  port: number;
+  message: string;
+}
+
+export interface ServiceDiagnostic {
+  ok: boolean;
+  status: string;
+  message: string;
+  url?: string;
+}
+
+export interface StorageDiagnostic {
+  ok: boolean;
+  status: string;
+  message: string;
+  backend: string;
+  upload_dir: string;
+}
+
+export interface CorsDiagnostic {
+  origins: string[];
+  allow_credentials: boolean;
+}
+
 export interface RuntimeStatus {
-  llm: {
-    provider: string;
-    model: string;
-    mode: string;
-    configured: boolean;
-  };
-  embedding: {
-    provider: string;
-    model: string;
-    mode: string;
-    configured: boolean;
-  };
+  status: string;
+  api: ApiDiagnostic;
+  database: ServiceDiagnostic;
+  redis: ServiceDiagnostic;
+  storage: StorageDiagnostic;
+  provider: ProviderStatus;
+  llm: ProviderRuntimeStatus;
+  embedding: ProviderRuntimeStatus;
+  cors: CorsDiagnostic;
 }
 
 export interface RagSearchResult {
@@ -485,11 +706,31 @@ export interface WorkflowNodeState {
   output_summary: string;
 }
 
+export interface WorkflowRunSummary {
+  id: string;
+  stage_id: string;
+  agent_name: string;
+  selected_skill: string;
+  intent: string;
+  output_type: string;
+  status: string;
+  latency_ms: number;
+  output_summary: string;
+  error_message: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WorkflowStatus {
   project_id: string;
   nodes: WorkflowNodeState[];
   current_stage: string;
   status: string;
+  progress: number;
+  recent_run: WorkflowRunSummary | null;
+  failed_nodes: WorkflowNodeState[];
+  next_stage: string | null;
+  next_suggestion: string;
 }
 
 export interface DashboardStats {
@@ -516,32 +757,68 @@ export interface DashboardStats {
   }>;
 }
 
-export interface HealthStatus {
-  status: string;
-  database: string;
-  redis: string;
-  storage?: {
-    backend?: string;
-    upload_dir?: string;
-    available?: boolean;
-  };
+export interface HealthStatus extends RuntimeStatus {
   version: string;
 }
 
 export interface PromptTemplate {
+  id: string;
   name: string;
   title: string;
   description: string;
   content: string;
   category: string;
   variables: string[];
-  version: string;
+  version: number;
   is_active: boolean;
+  source: string;
+  source_path: string;
+  content_checksum: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PromptTemplateCreate {
+  name: string;
+  title: string;
+  content: string;
+  description?: string;
+  category?: string;
+  metadata?: Record<string, unknown>;
+  is_active?: boolean;
+}
+
+export interface PromptTemplateUpdate {
+  title?: string;
+  description?: string;
+  content?: string;
+  category?: string;
+  metadata?: Record<string, unknown>;
+  activate?: boolean;
+}
+
+export interface PromptVersion {
+  id: string;
+  name: string;
+  title: string;
+  description: string;
+  category: string;
+  variables: string[];
+  version: number;
+  is_active: boolean;
+  source: string;
+  source_path: string;
+  content_checksum: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PromptStats {
   total: number;
   active: number;
+  total_versions: number;
   categories: Record<string, number>;
   total_variables: number;
 }

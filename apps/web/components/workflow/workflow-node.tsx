@@ -13,6 +13,7 @@ export interface WorkflowNodeData {
   icon: LucideIcon
   status: 'pending' | 'running' | 'success' | 'failed'
   run?: AgentRun
+  outputSummary?: string
   isSelected: boolean
 }
 
@@ -48,7 +49,7 @@ const STATUS_CONFIG = {
 }
 
 function WorkflowNodeComponent({ data }: NodeProps<WorkflowNodeData>) {
-  const { label, agent, icon: NodeIcon, status, run, isSelected } = data
+  const { label, agent, icon: NodeIcon, status, run, outputSummary, isSelected } = data
   const config = STATUS_CONFIG[status]
   const StatusIcon = config.Icon
 
@@ -77,6 +78,11 @@ function WorkflowNodeComponent({ data }: NodeProps<WorkflowNodeData>) {
           )}
         </div>
       </div>
+      {outputSummary && (
+        <p className="mt-2 text-[10px] leading-snug text-muted-foreground line-clamp-2">
+          {outputSummary}
+        </p>
+      )}
       <Handle type="source" position={Position.Bottom} className="!bg-violet-500" />
     </div>
   )

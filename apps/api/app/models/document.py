@@ -23,6 +23,12 @@ class Document(Base, TimestampMixin):
     project = relationship("Project", back_populates="documents")
     chunks = relationship("DocumentChunk", back_populates="document", cascade="all, delete-orphan")
 
+    @property
+    def error_message(self) -> str:
+        metadata = self.metadata_ or {}
+        last_error = metadata.get("last_error") or {}
+        return metadata.get("error_message") or last_error.get("message") or ""
+
 
 class DocumentChunk(Base, TimestampMixin):
     __tablename__ = "document_chunks"

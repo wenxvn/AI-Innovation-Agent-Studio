@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
@@ -13,6 +13,8 @@ class DocumentOut(BaseModel):
     summary: str
     chunk_count: int
     embedding_status: str
+    error_message: Optional[str] = ""
+    metadata_: dict = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
 

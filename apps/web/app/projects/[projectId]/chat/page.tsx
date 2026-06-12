@@ -683,6 +683,7 @@ export default function ChatPage() {
               <div className="flex gap-3">
                 <Textarea
                   ref={textareaRef}
+                  aria-label="Agent task input"
                   placeholder="输入任务需求... Enter 发送，Shift+Enter 换行"
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
