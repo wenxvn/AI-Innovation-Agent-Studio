@@ -21,6 +21,7 @@ import {
   Copy,
   FileText,
   Layers,
+  Lightbulb,
   Loader2,
   MessageSquare,
   Search,
@@ -69,6 +70,19 @@ const SUGGESTIONS = [
   '设计系统架构方案，包括前后端、数据模型和 Agent 工作流',
   '生成答辩稿大纲，覆盖问题背景、方案亮点和演示流程',
 ]
+
+const INSPIRATION_PROMPT = `我现在没有明确 idea。请作为灵感探索 Agent：
+1. 先向我提出 3-5 个用于确定大体主题的问题；
+2. 在信息不足时，先基于通用热点假设 2-3 个可选主题；
+3. 围绕这些主题，扫描小红书、抖音、X/Twitter、知乎、论坛或其他社交平台上的热点信号；
+4. 筛选可产品化的话题，并给出项目建议、MVP 范围、验证实验和风险。`
+
+interface AgentRunRequest {
+  user_input: string
+  agent_name?: string
+  selected_skill?: string
+  run_mode?: string
+}
 
 interface ChatMessage {
   id: string
@@ -457,8 +471,8 @@ export default function ChatPage() {
   })
 
   const runMutation = useMutation({
-    mutationFn: (userInput: string) =>
-      api.agents.run(projectId, { user_input: userInput }),
+    mutationFn: (payload: AgentRunRequest) =>
+      api.agents.run(projectId, payload),
     onSuccess: (data) => {
       const run = data.data
       const output = getRecord(run.generated_output)
@@ -494,8 +508,8 @@ export default function ChatPage() {
     }
   }, [runs, selectedRunId])
 
-  const handleSend = () => {
-    const trimmed = input.trim()
+  const submitRun = (content: string, options: Omit<AgentRunRequest, 'user_input'> = {}) => {
+    const trimmed = content.trim()
     if (!trimmed || runMutation.isPending) return
 
     setMessages((prev) => [
@@ -508,8 +522,25 @@ export default function ChatPage() {
       },
     ])
 
-    runMutation.mutate(trimmed)
+    runMutation.mutate({ ...options, user_input: trimmed })
     setInput('')
+  }
+
+  const handleSend = () => {
+    submitRun(input)
+  }
+
+  const handleInspirationDiscovery = () => {
+    const trimmed = input.trim()
+    const prompt = trimmed
+      ? `我现在没有明确 idea，但有这些偏好或线索：\n${trimmed}\n\n请先帮我确定大体主题，再扫描小红书、抖音、X/Twitter、知乎、论坛或其他社交平台的热点信号，筛选可产品化话题，并给出项目建议、MVP 范围、验证实验和风险。`
+      : INSPIRATION_PROMPT
+
+    submitRun(prompt, {
+      agent_name: 'Product Agent',
+      selected_skill: 'idea-generator',
+      run_mode: 'inspiration_discovery',
+    })
   }
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -555,6 +586,17 @@ export default function ChatPage() {
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
                       你可以从赛题解析、PRD、架构、代码骨架或答辩材料开始。运行后右侧会展示上下文、工具、评估和 Trace。
                     </p>
+                    <div className="mt-5 flex justify-center">
+                      <Button
+                        variant="primary"
+                        className="h-auto rounded-md px-4 py-3 text-sm"
+                        onClick={handleInspirationDiscovery}
+                        disabled={runMutation.isPending}
+                      >
+                        <Lightbulb className="mr-2 h-4 w-4" />
+                        没有 idea，帮我找热点方向
+                      </Button>
+                    </div>
                     <div className="mt-6 grid gap-2 sm:grid-cols-2">
                       {SUGGESTIONS.map((suggestion) => (
                         <Button
@@ -649,6 +691,17 @@ export default function ChatPage() {
                   className="resize-none rounded-md"
                   disabled={runMutation.isPending}
                 />
+                <Button
+                  variant="outline"
+                  onClick={handleInspirationDiscovery}
+                  disabled={runMutation.isPending}
+                  className="shrink-0 rounded-md px-3"
+                  aria-label="没有 idea，寻找热点方向"
+                  title="没有 idea，寻找热点方向"
+                >
+                  <Lightbulb className="h-4 w-4" />
+                  <span className="ml-2 hidden md:inline">没 idea</span>
+                </Button>
                 <Button
                   variant="primary"
                   onClick={handleSend}

@@ -68,6 +68,14 @@ tools:
     requires_approval: false
     timeout_seconds: 20
 
+  - name: social_trend_scan
+    display_name: Social Trend Scan
+    category: retrieval
+    description: 围绕用户主题扫描小红书、抖音、X/Twitter、论坛等社交平台的热点信号
+    risk_level: medium
+    requires_approval: false
+    timeout_seconds: 30
+
   - name: code_executor
     display_name: Code Executor
     category: execution

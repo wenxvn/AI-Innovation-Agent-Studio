@@ -2,7 +2,7 @@ name: idea-generator
 display_name: Idea Generator
 version: 1.0.0
 category: ideation
-description: 根据比赛要求和用户兴趣生成多个项目方向
+description: 根据比赛要求、用户兴趣或社交平台热点生成多个项目方向
 enabled: true
 trigger:
   - 用户需要项目方向
@@ -11,10 +11,12 @@ inputs:
   - requirements
   - user_preferences
   - market_trends
+  - social_trends
 outputs:
   - idea_report
 required_tools:
   - rag_search
   - web_search
+  - social_trend_scan
 risk_level: low
 requires_approval: false

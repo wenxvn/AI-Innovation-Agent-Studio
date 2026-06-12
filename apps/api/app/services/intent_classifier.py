@@ -68,7 +68,7 @@ INTENT_CLASSIFIER_PROMPT = """你是一个意图分类器。根据用户的输�
 
 可选的 intent 类型：
 - competition_analysis: 分析比赛、赛题、评分标准
-- idea_generation: 生成项目创意、方向、点子
+- idea_generation: 生成项目创意、方向、点子，或基于社交平台热点寻找灵感
 - research: 调研、研究、对比分析
 - prd_generation: 撰写产品需求文档 PRD
 - architecture_design: 设计系统架构、数据库设计
@@ -106,7 +106,23 @@ def rule_based_classify(user_input: str) -> IntentResult:
 
     rules = [
         (["比赛", "赛题", "评分", "竞赛", "competition"], "competition_analysis"),
-        (["想法", "创意", "方向", "idea", "点子"], "idea_generation"),
+        ([
+            "想法",
+            "创意",
+            "方向",
+            "idea",
+            "点子",
+            "没有想法",
+            "没想法",
+            "不知道做什么",
+            "找灵感",
+            "热点",
+            "小红书",
+            "抖音",
+            "推特",
+            "twitter",
+            "社交平台",
+        ], "idea_generation"),
         (["prd", "需求文档", "产品需求", "需求"], "prd_generation"),
         (["架构", "系统设计", "数据库设计", "microservice"], "architecture_design"),
         (["调研", "研究", "对比分析", "竞品", "research"], "research"),

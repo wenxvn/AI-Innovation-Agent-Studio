@@ -7,6 +7,7 @@ class AgentRunCreate(BaseModel):
     user_input: str = Field(..., min_length=1)
     agent_name: str = "Orchestrator Agent"
     selected_skill: Optional[str] = None
+    run_mode: Optional[str] = None
 
 
 class AgentRunOut(BaseModel):
@@ -21,6 +22,7 @@ class AgentRunOut(BaseModel):
     generated_output: dict
     eval_result: dict
     token_usage: dict
+    metadata_: dict
     latency_ms: int
     cost: float
     error_message: str

@@ -29,6 +29,11 @@ class TestRuleBasedClassifier:
         assert result.intent == "idea_generation"
         assert result.selected_skill == "idea-generator"
 
+    def test_social_hotspot_idea_generation(self):
+        result = rule_based_classify("我没有 idea，帮我从小红书、抖音和推特热点里找方向")
+        assert result.intent == "idea_generation"
+        assert result.selected_skill == "idea-generator"
+
     def test_research(self):
         result = rule_based_classify("帮我做一个调研报告")
         assert result.intent == "research"

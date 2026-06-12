@@ -39,6 +39,15 @@ BUILTIN_TOOLS = [
         "timeout_seconds": 30,
     },
     {
+        "name": "social_trend_scan",
+        "display_name": "Social Trend Scan",
+        "category": "retrieval",
+        "description": "扫描社交平台热点信号",
+        "risk_level": "medium",
+        "requires_approval": False,
+        "timeout_seconds": 30,
+    },
+    {
         "name": "file_writer",
         "display_name": "File Writer",
         "category": "file",

@@ -108,7 +108,7 @@ export const api = {
       }),
   },
   agents: {
-    run: (projectId: string, data: { user_input: string; agent_name?: string; selected_skill?: string }) =>
+    run: (projectId: string, data: { user_input: string; agent_name?: string; selected_skill?: string; run_mode?: string }) =>
       request<{ data: AgentRun }>(`/api/v1/projects/${projectId}/agents/run`, {
         method: "POST",
         body: JSON.stringify(data),
@@ -334,6 +334,7 @@ export interface AgentRun {
   generated_output: Record<string, unknown>;
   eval_result: Record<string, unknown>;
   token_usage: Record<string, number>;
+  metadata_: Record<string, unknown>;
   latency_ms: number;
   cost: number;
   error_message: string;
